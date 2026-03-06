@@ -27,10 +27,17 @@ export function loadConfig(): Config {
   // Allowlist of env vars the MCP server needs (avoids leaking unrelated secrets)
   const mcpServerEnv: Record<string, string> = {
     SOLANA_PRIVATE_KEY: solanaPrivateKey,
-    PATH: process.env.PATH ?? "",
-    HOME: process.env.HOME ?? "",
-    NODE_ENV: process.env.NODE_ENV ?? "",
   };
+
+  if (process.env.PATH !== undefined) {
+    mcpServerEnv.PATH = process.env.PATH;
+  }
+  if (process.env.HOME !== undefined) {
+    mcpServerEnv.HOME = process.env.HOME;
+  }
+  if (process.env.NODE_ENV !== undefined) {
+    mcpServerEnv.NODE_ENV = process.env.NODE_ENV;
+  }
 
   if (process.env.SOLANA_NETWORK) {
     mcpServerEnv.SOLANA_NETWORK = process.env.SOLANA_NETWORK;

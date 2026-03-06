@@ -15,7 +15,7 @@ async function main(): Promise<void> {
   const toolNames = mcpClient.tools.map((t) => t.name).join(", ");
   console.log(`Connected. Available tools: ${toolNames}`);
   console.log(`Using model: ${config.geminiModel}`);
-  console.log('Type your message, or /quit to exit.\n');
+  console.log("Type your message, or /quit to exit.\n");
 
   const rl = readline.createInterface({
     input: process.stdin,
