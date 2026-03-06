@@ -4,6 +4,7 @@ import {
   type FunctionDeclaration,
   type Part,
 } from "@google/genai";
+import * as readline from "node:readline/promises";
 import type { McpClient } from "./mcp-client.js";
 
 const SYSTEM_INSTRUCTION = `You are a helpful Solana payment assistant. You have access to tools that let you:
@@ -14,6 +15,9 @@ const SYSTEM_INSTRUCTION = `You are a helpful Solana payment assistant. You have
 
 When the user asks you to perform a payment action, use the appropriate tool. Always confirm amounts and addresses before executing transactions. Report results clearly.`;
 
+/** Tools that perform real payments and require user confirmation. */
+const DESTRUCTIVE_TOOLS = new Set(["send_usdc", "x402_payment"]);
+
 /**
  * Convert MCP tool JSON-Schema inputSchema to Gemini FunctionDeclaration format.
  * MCP uses standard JSON Schema types (lowercase), Gemini uses its own Type enum (uppercase).
@@ -23,8 +27,16 @@ function convertSchema(
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
-  if (schema.type) {
-    result.type = (schema.type as string).toUpperCase();
+  const schemaType = schema.type;
+  if (typeof schemaType === "string") {
+    result.type = schemaType.toUpperCase();
+  } else if (Array.isArray(schemaType)) {
+    const firstStringType = schemaType.find(
+      (t): t is string => typeof t === "string",
+    );
+    if (firstStringType) {
+      result.type = firstStringType.toUpperCase();
+    }
   }
   if (schema.description) {
     result.description = schema.description;
@@ -79,6 +91,7 @@ export async function runAgent(
   model: string,
   mcpClient: McpClient,
   userMessage: string,
+  confirmFn?: (toolName: string, args: Record<string, unknown>) => Promise<boolean>,
 ): Promise<string> {
   const ai = new GoogleGenAI({ apiKey });
 
@@ -116,6 +129,18 @@ export async function runAgent(
 
       let output: Record<string, unknown>;
       try {
+        // Require user confirmation for destructive tools
+        if (DESTRUCTIVE_TOOLS.has(toolName) && confirmFn) {
+          const approved = await confirmFn(toolName, toolArgs);
+          if (!approved) {
+            output = { error: "User declined the operation." };
+            responseParts.push({
+              functionResponse: { id: fc.id, name: toolName, response: output },
+            });
+            continue;
+          }
+        }
+
         const resultText = await mcpClient.callTool(toolName, toolArgs);
         output = { result: resultText };
       } catch (err) {

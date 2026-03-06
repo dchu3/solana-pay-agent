@@ -22,12 +22,15 @@ async function main(): Promise<void> {
     output: process.stdout,
   });
 
+  let shuttingDown = false;
   const shutdown = async (): Promise<void> => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     rl.close();
     await mcpClient.close();
   };
 
-  process.on("SIGINT", () => {
+  const handleSignal = () => {
     (async () => {
       console.log("\nShutting down...");
       try {
@@ -41,7 +44,10 @@ async function main(): Promise<void> {
         process.exit(1);
       }
     })();
-  });
+  };
+
+  process.once("SIGINT", handleSignal);
+  process.once("SIGTERM", handleSignal);
 
   try {
     for await (const line of rl) {
@@ -50,11 +56,22 @@ async function main(): Promise<void> {
       if (input === "/quit") break;
 
       try {
+        const confirmFn = async (
+          toolName: string,
+          args: Record<string, unknown>,
+        ): Promise<boolean> => {
+          const answer = await rl.question(
+            `\n⚠️  Confirm ${toolName} with ${JSON.stringify(args)}? (y/N) `,
+          );
+          return answer.trim().toLowerCase() === "y";
+        };
+
         const answer = await runAgent(
           config.geminiApiKey,
           config.geminiModel,
           mcpClient,
           input,
+          confirmFn,
         );
         console.log(`\n${answer}\n`);
       } catch (err) {

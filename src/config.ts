@@ -24,16 +24,12 @@ export function loadConfig(): Config {
     throw new Error("SOLANA_PRIVATE_KEY environment variable is required");
   }
 
-  const baseEnv: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined) {
-      baseEnv[key] = value;
-    }
-  }
-
+  // Allowlist of env vars the MCP server needs (avoids leaking unrelated secrets)
   const mcpServerEnv: Record<string, string> = {
-    ...baseEnv,
     SOLANA_PRIVATE_KEY: solanaPrivateKey,
+    PATH: process.env.PATH ?? "",
+    HOME: process.env.HOME ?? "",
+    NODE_ENV: process.env.NODE_ENV ?? "",
   };
 
   if (process.env.SOLANA_NETWORK) {
