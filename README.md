@@ -33,7 +33,7 @@ cp .env.example .env
 ```
 
 | Variable | Required | Description |
-|---|---|---|
+| --- | --- | --- |
 | `GEMINI_API_KEY` | Yes | Google Gemini API key |
 | `MCP_SERVER_PATH` | Yes | Path to compiled MCP server entry point (e.g. `../solana-x402-mcp/dist/index.js`) |
 | `SOLANA_PRIVATE_KEY` | Yes | Base58-encoded Solana wallet private key |
