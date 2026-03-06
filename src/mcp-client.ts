@@ -13,7 +13,7 @@ export async function createMcpClient(
   env: Record<string, string>,
 ): Promise<McpClient> {
   const transport = new StdioClientTransport({
-    command: "node",
+    command: process.execPath,
     args: [serverPath],
     env,
     stderr: "pipe",

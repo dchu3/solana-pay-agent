@@ -4,7 +4,6 @@ import {
   type FunctionDeclaration,
   type Part,
 } from "@google/genai";
-import * as readline from "node:readline/promises";
 import type { McpClient } from "./mcp-client.js";
 
 const SYSTEM_INSTRUCTION = `You are a helpful Solana payment assistant. You have access to tools that let you:
@@ -86,12 +85,17 @@ function mcpToolsToGeminiDeclarations(
 
 const MAX_TOOL_ROUNDS = 10;
 
+export type ConfirmFn = (toolName: string, args: Record<string, unknown>) => Promise<boolean>;
+
+/** Default: reject destructive tool calls when no confirmation callback is provided. */
+const rejectByDefault: ConfirmFn = async () => false;
+
 export async function runAgent(
   apiKey: string,
   model: string,
   mcpClient: McpClient,
   userMessage: string,
-  confirmFn?: (toolName: string, args: Record<string, unknown>) => Promise<boolean>,
+  confirmFn: ConfirmFn = rejectByDefault,
 ): Promise<string> {
   const ai = new GoogleGenAI({ apiKey });
 
@@ -129,8 +133,7 @@ export async function runAgent(
 
       let output: Record<string, unknown>;
       try {
-        // Require user confirmation for destructive tools
-        if (DESTRUCTIVE_TOOLS.has(toolName) && confirmFn) {
+        if (DESTRUCTIVE_TOOLS.has(toolName)) {
           const approved = await confirmFn(toolName, toolArgs);
           if (!approved) {
             output = { error: "User declined the operation." };
