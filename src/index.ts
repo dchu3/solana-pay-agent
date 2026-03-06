@@ -27,10 +27,20 @@ async function main(): Promise<void> {
     await mcpClient.close();
   };
 
-  process.on("SIGINT", async () => {
-    console.log("\nShutting down...");
-    await shutdown();
-    process.exit(0);
+  process.on("SIGINT", () => {
+    (async () => {
+      console.log("\nShutting down...");
+      try {
+        await shutdown();
+        process.exit(0);
+      } catch (err) {
+        console.error(
+          "Error during shutdown:",
+          err instanceof Error ? err.message : String(err),
+        );
+        process.exit(1);
+      }
+    })();
   });
 
   try {

@@ -1,6 +1,5 @@
 import {
   GoogleGenAI,
-  Type,
   type Content,
   type FunctionDeclaration,
   type Part,
