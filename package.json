@@ -1,0 +1,22 @@
+{
+  "name": "solana-pay-agent",
+  "version": "1.0.0",
+  "description": "A Gemini-powered CLI agent that interacts with the solana-x402-mcp server via natural language",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": ["solana", "usdc", "mcp", "gemini", "agent", "cli"],
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^0.7.0",
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.7.3"
+  }
+}
