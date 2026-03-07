@@ -34,6 +34,10 @@ User (readline) → index.ts → agent.ts → Gemini API
 - **Safe-by-default confirmation** — A `READ_ONLY_TOOLS` allowlist in `agent.ts` determines which tools skip confirmation. Any tool NOT in this set requires user approval, so newly added MCP tools are safe by default.
 - **Conventional commits** — Use `feat:`, `fix:`, `docs:` prefixes. Always create feature/fix branches; never push directly to `main`.
 
+## Git Workflow
+
+Never push directly to `main`. Always create a feature or fix branch (e.g., `feat/my-feature`, `fix/my-bug`) and open a pull request.
+
 ## Required Environment Variables
 
 Defined in `.env` (see `.env.example`). Validated by Zod in `config.ts`:

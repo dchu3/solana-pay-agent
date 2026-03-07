@@ -20,8 +20,10 @@ When the user asks you to perform a payment action, use the appropriate tool. Al
  * so newly added MCP tools are safe by default.
  */
 const READ_ONLY_TOOLS = new Set([
+  "get_wallet_info",
+  "get_sol_balance",
   "get_usdc_balance",
-  "list_recent_incoming_usdc_payments",
+  "get_incoming_usdc_payments",
 ]);
 
 /**
@@ -129,13 +131,20 @@ export async function runAgent(
 
     if (!functionCalls || functionCalls.length === 0) {
       const text = response.text ?? "(no response)";
-      history.push({ role: "model", parts: [{ text }] });
+      // Use raw content to preserve any model metadata (e.g., thought signatures)
+      const modelContent = response.candidates?.[0]?.content;
+      history.push(modelContent ?? { role: "model", parts: [{ text }] });
       return text;
     }
 
-    // Append the model's function-call turn
-    const modelParts: Part[] = functionCalls.map((fc) => ({ functionCall: fc }));
-    history.push({ role: "model", parts: modelParts });
+    // Push the raw model content to preserve thought signatures required by Gemini 3.x
+    const modelContent = response.candidates?.[0]?.content;
+    if (modelContent) {
+      history.push(modelContent);
+    } else {
+      const modelParts: Part[] = functionCalls.map((fc) => ({ functionCall: fc }));
+      history.push({ role: "model", parts: modelParts });
+    }
 
     // Execute each function call and collect responses
     const responseParts: Part[] = [];
