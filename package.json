@@ -8,13 +8,20 @@
     "build": "tsc",
     "start": "node dist/index.js"
   },
-  "keywords": ["solana", "usdc", "mcp", "gemini", "agent", "cli"],
+  "keywords": [
+    "solana",
+    "usdc",
+    "mcp",
+    "gemini",
+    "agent",
+    "cli"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "@google/genai": "^0.7.0",
+    "@google/genai": "^1.44.0",
     "@modelcontextprotocol/sdk": "^1.6.1",
     "dotenv": "^16.4.7",
     "zod": "^3.23.8"
