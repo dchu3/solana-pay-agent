@@ -89,6 +89,7 @@ async function main(): Promise<void> {
           mcpClient,
           trimmed,
           conversationHistory,
+          config.walletAddress,
           confirmFn,
         );
         console.log(`\n${answer}\n`);

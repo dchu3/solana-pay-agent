@@ -1,10 +1,13 @@
 import "dotenv/config";
 import { z } from "zod";
+import bs58 from "bs58";
 
 export interface Config {
   geminiApiKey: string;
   geminiModel: string;
   mcpServerPath: string;
+  /** The user's Solana wallet public address (derived from SOLANA_PRIVATE_KEY). */
+  walletAddress: string;
   /** Environment variables forwarded to the MCP server subprocess. */
   mcpServerEnv: Record<string, string>;
   verbose: boolean;
@@ -78,10 +81,21 @@ export function loadConfig(): Config {
     mcpServerEnv.SOLANA_RPC_URL = env.SOLANA_RPC_URL;
   }
 
+  // Derive the wallet public address from the private key.
+  // Solana keypairs are 64 bytes: first 32 = secret key, last 32 = public key.
+  const keypairBytes = bs58.decode(env.SOLANA_PRIVATE_KEY);
+  if (keypairBytes.length !== 64) {
+    throw new Error(
+      `SOLANA_PRIVATE_KEY must decode to a 64-byte keypair (got ${keypairBytes.length} bytes)`,
+    );
+  }
+  const walletAddress = bs58.encode(keypairBytes.slice(32));
+
   return {
     geminiApiKey: env.GEMINI_API_KEY,
     geminiModel: env.GEMINI_MODEL ?? "gemini-3.1-flash-lite-preview",
     mcpServerPath: env.MCP_SERVER_PATH,
+    walletAddress,
     mcpServerEnv,
     verbose: env.VERBOSE === "true" || env.VERBOSE === "1",
   };
