@@ -128,7 +128,19 @@ export async function runAgent(
     // Execute each function call and collect responses
     const responseParts: Part[] = [];
     for (const fc of functionCalls) {
-      const toolName = fc.name ?? "unknown";
+      // Treat missing tool name as a malformed call — skip execution.
+      if (!fc.name) {
+        responseParts.push({
+          functionResponse: {
+            id: fc.id,
+            name: "unknown",
+            response: { error: "Missing tool name in function call." },
+          },
+        });
+        continue;
+      }
+
+      const toolName = fc.name;
       const toolArgs = (fc.args as Record<string, unknown>) ?? {};
 
       let output: Record<string, unknown>;

@@ -20,31 +20,51 @@ export async function createMcpClient(
   });
 
   const client = new Client({ name: "solana-pay-agent", version: "1.0.0" });
-  await client.connect(transport);
 
-  const { tools } = await client.listTools();
+  try {
+    await client.connect(transport);
 
-  return {
-    tools,
+    const { tools } = await client.listTools();
 
-    async callTool(
-      name: string,
-      args: Record<string, unknown>,
-    ): Promise<string> {
-      const result = await client.callTool({ name, arguments: args });
+    return {
+      tools,
 
-      const parts = (result.content ?? []) as Array<{
-        type: string;
-        text?: string;
-      }>;
-      return parts
-        .filter((p) => p.type === "text" && p.text)
-        .map((p) => p.text!)
-        .join("\n");
-    },
+      async callTool(
+        name: string,
+        args: Record<string, unknown>,
+      ): Promise<string> {
+        const result = await client.callTool({ name, arguments: args });
 
-    async close(): Promise<void> {
+        const parts = (result.content ?? []) as Array<{
+          type: string;
+          text?: string;
+          [key: string]: unknown;
+        }>;
+        return parts
+          .map((p) => {
+            if (p.type === "text" && typeof p.text === "string") {
+              return p.text;
+            }
+            try {
+              return JSON.stringify(p);
+            } catch {
+              return String(p);
+            }
+          })
+          .filter((s) => s.length > 0)
+          .join("\n");
+      },
+
+      async close(): Promise<void> {
+        await client.close();
+      },
+    };
+  } catch (error) {
+    try {
       await client.close();
-    },
-  };
+    } catch {
+      // Ignore cleanup errors to preserve the original error.
+    }
+    throw error;
+  }
 }
