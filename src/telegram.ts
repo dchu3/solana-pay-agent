@@ -165,22 +165,25 @@ async function main(): Promise<void> {
     await ctx.reply("🔄 Conversation history cleared.");
   });
 
-  // Main message handler
-  bot.on("message:text", async (ctx) => {
+  // Main message handler — fire off agent processing as a background task
+  // so the handler returns immediately and grammY can process callback
+  // query updates (needed for inline keyboard confirmations).
+  bot.on("message:text", (ctx) => {
     const messageId = ctx.message.message_id;
 
-    // Prevent concurrent processing of multiple messages
     if (processing.size > 0) {
-      await ctx.reply("⏳ Still processing your previous message. Please wait.");
+      ctx.reply("⏳ Still processing your previous message. Please wait.").catch(() => {});
       return;
     }
     processing.add(messageId);
 
-    try {
-      await ctx.api.sendChatAction(ctx.chat.id, "typing");
+    const chatId = ctx.chat.id;
+
+    const run = async (): Promise<void> => {
+      await ctx.api.sendChatAction(chatId, "typing");
 
       const typingInterval = setInterval(() => {
-        ctx.api.sendChatAction(ctx.chat.id, "typing").catch(() => {});
+        ctx.api.sendChatAction(chatId, "typing").catch(() => {});
       }, 4_000);
 
       try {
@@ -200,10 +203,15 @@ async function main(): Promise<void> {
         clearInterval(typingInterval);
         const errorMsg = err instanceof Error ? err.message : String(err);
         await ctx.reply(`❌ Error: ${errorMsg}`);
+      } finally {
+        processing.delete(messageId);
       }
-    } finally {
+    };
+
+    run().catch((err) => {
       processing.delete(messageId);
-    }
+      console.error("Unhandled error in agent run:", err instanceof Error ? err.message : String(err));
+    });
   });
 
   let shuttingDown = false;
