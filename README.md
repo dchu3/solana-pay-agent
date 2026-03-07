@@ -36,7 +36,7 @@ cp .env.example .env
 - `MCP_SERVER_PATH` (required): Path to compiled MCP server entry point (e.g. `../solana-x402-mcp/dist/index.js`)
 - `SOLANA_PRIVATE_KEY` (required): Base58-encoded Solana wallet private key
 - `GEMINI_MODEL` (optional): Gemini model (default: `gemini-3.1-flash-lite-preview`)
-- `SOLANA_NETWORK` (optional): `devnet` or `mainnet-beta` (default: `devnet`)
+- `SOLANA_NETWORK` (optional): `devnet` or `mainnet-beta`. If unset, the effective default is determined by the MCP server.
 - `SOLANA_RPC_URL` (optional): Custom Solana RPC endpoint
 
 ## Usage
