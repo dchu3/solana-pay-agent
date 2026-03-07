@@ -7,13 +7,15 @@ import {
 import type { McpClient } from "./mcp-client.js";
 import { debug } from "./logger.js";
 
-const SYSTEM_INSTRUCTION = `You are a helpful Solana payment assistant. You have access to tools that let you:
+const SYSTEM_INSTRUCTION = (walletAddress: string) => `You are a helpful Solana payment assistant. The user's wallet address is: ${walletAddress}
+
+You have access to tools that let you:
 - Check the wallet USDC balance
 - Send USDC payments to other wallets
 - View recent incoming USDC payments
 - Make payments via the x402 protocol
 
-When the user asks you to perform a payment action, use the appropriate tool. Always confirm amounts and addresses before executing transactions. Report results clearly.`;
+When the user refers to "my wallet", "my balance", or similar, use their wallet address shown above. When the user asks you to perform a payment action, use the appropriate tool. Always confirm amounts and addresses before executing transactions. Report results clearly.`;
 
 /**
  * Read-only tools that can run without user confirmation.
@@ -110,6 +112,7 @@ export async function runAgent(
   mcpClient: McpClient,
   userMessage: string,
   history: Content[],
+  walletAddress: string,
   confirmFn: ConfirmFn = rejectByDefault,
 ): Promise<string> {
   const ai = new GoogleGenAI({ apiKey });
@@ -125,7 +128,7 @@ export async function runAgent(
       model,
       contents: history,
       config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
+        systemInstruction: SYSTEM_INSTRUCTION(walletAddress),
         tools: [{ functionDeclarations }],
       },
     });
