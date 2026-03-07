@@ -32,14 +32,12 @@ Copy `.env.example` to `.env` and fill in the values:
 cp .env.example .env
 ```
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `GEMINI_API_KEY` | Yes | Google Gemini API key |
-| `MCP_SERVER_PATH` | Yes | Path to compiled MCP server entry point (e.g. `../solana-x402-mcp/dist/index.js`) |
-| `SOLANA_PRIVATE_KEY` | Yes | Base58-encoded Solana wallet private key |
-| `GEMINI_MODEL` | No | Gemini model (default: `gemini-3.1-flash-lite-preview`) |
-| `SOLANA_NETWORK` | No | `devnet` or `mainnet-beta` (default: `devnet`) |
-| `SOLANA_RPC_URL` | No | Custom Solana RPC endpoint |
+- `GEMINI_API_KEY` (required): Google Gemini API key
+- `MCP_SERVER_PATH` (required): Path to compiled MCP server entry point (e.g. `../solana-x402-mcp/dist/index.js`)
+- `SOLANA_PRIVATE_KEY` (required): Base58-encoded Solana wallet private key
+- `GEMINI_MODEL` (optional): Gemini model (default: `gemini-3.1-flash-lite-preview`)
+- `SOLANA_NETWORK` (optional): `devnet` or `mainnet-beta` (default: `devnet`)
+- `SOLANA_RPC_URL` (optional): Custom Solana RPC endpoint
 
 ## Usage
 
