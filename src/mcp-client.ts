@@ -1,6 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import packageJson from "../package.json" with { type: "json" };
 
 export interface McpClient {
   tools: Tool[];
@@ -19,7 +20,7 @@ export async function createMcpClient(
     stderr: "inherit",
   });
 
-  const client = new Client({ name: "solana-pay-agent", version: "1.0.0" });
+  const client = new Client({ name: "solana-pay-agent", version: packageJson.version });
 
   try {
     await client.connect(transport);

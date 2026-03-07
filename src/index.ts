@@ -50,10 +50,17 @@ async function main(): Promise<void> {
   process.once("SIGTERM", handleSignal);
 
   try {
-    for await (const line of rl) {
-      const input = line.trim();
-      if (!input) continue;
-      if (input === "/quit") break;
+    while (!shuttingDown) {
+      let input: string;
+      try {
+        input = await rl.question("> ");
+      } catch {
+        // readline was closed (e.g., EOF or shutdown)
+        break;
+      }
+      const trimmed = input.trim();
+      if (!trimmed) continue;
+      if (trimmed === "/quit") break;
 
       try {
         const confirmFn = async (
@@ -70,7 +77,7 @@ async function main(): Promise<void> {
           config.geminiApiKey,
           config.geminiModel,
           mcpClient,
-          input,
+          trimmed,
           confirmFn,
         );
         console.log(`\n${answer}\n`);

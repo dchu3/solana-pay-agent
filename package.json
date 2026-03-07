@@ -10,6 +10,9 @@
   },
   "keywords": ["solana", "usdc", "mcp", "gemini", "agent", "cli"],
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@google/genai": "^0.7.0",
     "@modelcontextprotocol/sdk": "^1.6.1",
