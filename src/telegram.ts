@@ -85,6 +85,11 @@ async function main(): Promise<void> {
   const confirmFn = makeConfirmFn(bot, allowedChatId);
   const processing = new Set<number>();
 
+  // Global error handler — log and continue instead of crashing
+  bot.catch((err) => {
+    console.error("Error in bot middleware:", err.message);
+  });
+
   // Chat ID guard — silently ignore messages from unauthorized chats
   bot.use(async (ctx, next) => {
     if (String(ctx.chat?.id) !== allowedChatId) return;
@@ -102,7 +107,9 @@ async function main(): Promise<void> {
 
     const pending = pendingConfirmations.get(confirmId);
     if (!pending) {
-      await ctx.answerCallbackQuery({ text: "This confirmation has expired." });
+      // The confirmation timed out or was already handled — the Telegram
+      // callback query may also have expired, so ignore failures.
+      await ctx.answerCallbackQuery({ text: "This confirmation has expired." }).catch(() => {});
       return;
     }
 
@@ -114,12 +121,12 @@ async function main(): Promise<void> {
 
     await ctx.answerCallbackQuery({
       text: approved ? "✅ Approved" : "❌ Rejected",
-    });
+    }).catch(() => {});
     await ctx.editMessageText(
       approved
         ? "✅ Action approved."
         : "❌ Action rejected.",
-    );
+    ).catch(() => {});
   });
 
   bot.command("start", async (ctx) => {
