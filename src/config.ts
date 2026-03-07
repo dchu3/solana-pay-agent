@@ -7,6 +7,7 @@ export interface Config {
   mcpServerPath: string;
   /** Environment variables forwarded to the MCP server subprocess. */
   mcpServerEnv: Record<string, string>;
+  verbose: boolean;
 }
 
 const EnvSchema = z.object({
@@ -27,6 +28,7 @@ const EnvSchema = z.object({
   SOLANA_NETWORK: z.string().optional(),
   SOLANA_RPC_URL: z.string().optional(),
   NODE_ENV: z.string().optional(),
+  VERBOSE: z.string().optional(),
 });
 
 export function loadConfig(): Config {
@@ -68,5 +70,6 @@ export function loadConfig(): Config {
     geminiModel: env.GEMINI_MODEL ?? "gemini-3.1-flash-lite-preview",
     mcpServerPath: env.MCP_SERVER_PATH,
     mcpServerEnv,
+    verbose: env.VERBOSE === "true" || env.VERBOSE === "1",
   };
 }

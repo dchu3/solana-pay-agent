@@ -38,12 +38,27 @@ cp .env.example .env
 - `GEMINI_MODEL` (optional): Gemini model (default: `gemini-3.1-flash-lite-preview`)
 - `SOLANA_NETWORK` (optional): `devnet` or `mainnet-beta`. If unset, the effective default is determined by the MCP server.
 - `SOLANA_RPC_URL` (optional): Custom Solana RPC endpoint
+- `VERBOSE` (optional): Set to `true` or `1` to enable debug logging
 
 ## Usage
 
 ```bash
 npm start
 ```
+
+To enable debug logging (tool calls, MCP responses, errors), use the `--verbose` flag:
+
+```bash
+npm start -- --verbose
+```
+
+Or set the `VERBOSE` env var:
+
+```bash
+VERBOSE=true npm start
+```
+
+Debug output is written to stderr so it won't interfere with normal conversation output.
 
 Example prompts:
 
@@ -69,6 +84,7 @@ The agent connects to the MCP server, discovers available tools, and uses Gemini
 - **`src/agent.ts`** — Gemini agentic loop with function calling
 - **`src/mcp-client.ts`** — MCP client managing the server subprocess
 - **`src/config.ts`** — Environment variable loading and validation
+- **`src/logger.ts`** — Debug logging utility (verbose mode)
 
 ## License
 

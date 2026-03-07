@@ -3,9 +3,13 @@ import { loadConfig } from "./config.js";
 import { createMcpClient } from "./mcp-client.js";
 import { type Content } from "@google/genai";
 import { runAgent } from "./agent.js";
+import { setVerbose } from "./logger.js";
 
 async function main(): Promise<void> {
+  const verbose =
+    process.argv.includes("--verbose") || process.argv.includes("-v");
   const config = loadConfig();
+  setVerbose(verbose || config.verbose);
 
   console.log("Connecting to MCP server...");
   const mcpClient = await createMcpClient(
@@ -16,6 +20,9 @@ async function main(): Promise<void> {
   const toolNames = mcpClient.tools.map((t) => t.name).join(", ");
   console.log(`Connected. Available tools: ${toolNames}`);
   console.log(`Using model: ${config.geminiModel}`);
+  if (verbose || config.verbose) {
+    console.log("Verbose logging enabled (debug output on stderr)");
+  }
   console.log("Type your message, or /quit to exit.\n");
 
   const conversationHistory: Content[] = [];
