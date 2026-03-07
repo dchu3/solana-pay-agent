@@ -1,6 +1,7 @@
 import * as readline from "node:readline/promises";
 import { loadConfig } from "./config.js";
 import { createMcpClient } from "./mcp-client.js";
+import { type Content } from "@google/genai";
 import { runAgent } from "./agent.js";
 
 async function main(): Promise<void> {
@@ -16,6 +17,8 @@ async function main(): Promise<void> {
   console.log(`Connected. Available tools: ${toolNames}`);
   console.log(`Using model: ${config.geminiModel}`);
   console.log("Type your message, or /quit to exit.\n");
+
+  const conversationHistory: Content[] = [];
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -78,6 +81,7 @@ async function main(): Promise<void> {
           config.geminiModel,
           mcpClient,
           trimmed,
+          conversationHistory,
           confirmFn,
         );
         console.log(`\n${answer}\n`);

@@ -40,6 +40,7 @@ export function loadConfig(): Config {
   // Forward OS-critical env vars so the subprocess works across platforms
   const platformVars = [
     "PATH",
+    "Path",
     "HOME",
     "NODE_ENV",
     // Windows-critical

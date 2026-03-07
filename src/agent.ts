@@ -14,8 +14,15 @@ const SYSTEM_INSTRUCTION = `You are a helpful Solana payment assistant. You have
 
 When the user asks you to perform a payment action, use the appropriate tool. Always confirm amounts and addresses before executing transactions. Report results clearly.`;
 
-/** Tools that perform real payments and require user confirmation. */
-const DESTRUCTIVE_TOOLS = new Set(["send_usdc", "x402_payment"]);
+/**
+ * Read-only tools that can run without user confirmation.
+ * Any tool NOT in this set is treated as destructive and requires confirmation,
+ * so newly added MCP tools are safe by default.
+ */
+const READ_ONLY_TOOLS = new Set([
+  "get_usdc_balance",
+  "list_recent_incoming_usdc_payments",
+]);
 
 /**
  * Convert MCP tool JSON-Schema inputSchema to Gemini FunctionDeclaration format.
@@ -90,25 +97,28 @@ export type ConfirmFn = (toolName: string, args: Record<string, unknown>) => Pro
 /** Default: reject destructive tool calls when no confirmation callback is provided. */
 const rejectByDefault: ConfirmFn = async () => false;
 
+/**
+ * Run the agent loop. Appends the new user message and all model/tool turns
+ * to `history` so callers can maintain multi-turn conversation state.
+ */
 export async function runAgent(
   apiKey: string,
   model: string,
   mcpClient: McpClient,
   userMessage: string,
+  history: Content[],
   confirmFn: ConfirmFn = rejectByDefault,
 ): Promise<string> {
   const ai = new GoogleGenAI({ apiKey });
 
   const functionDeclarations = mcpToolsToGeminiDeclarations(mcpClient);
 
-  const contents: Content[] = [
-    { role: "user", parts: [{ text: userMessage }] },
-  ];
+  history.push({ role: "user", parts: [{ text: userMessage }] });
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const response = await ai.models.generateContent({
       model,
-      contents,
+      contents: history,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         tools: [{ functionDeclarations }],
@@ -118,12 +128,14 @@ export async function runAgent(
     const functionCalls = response.functionCalls;
 
     if (!functionCalls || functionCalls.length === 0) {
-      return response.text ?? "(no response)";
+      const text = response.text ?? "(no response)";
+      history.push({ role: "model", parts: [{ text }] });
+      return text;
     }
 
     // Append the model's function-call turn
     const modelParts: Part[] = functionCalls.map((fc) => ({ functionCall: fc }));
-    contents.push({ role: "model", parts: modelParts });
+    history.push({ role: "model", parts: modelParts });
 
     // Execute each function call and collect responses
     const responseParts: Part[] = [];
@@ -145,7 +157,7 @@ export async function runAgent(
 
       let output: Record<string, unknown>;
       try {
-        if (DESTRUCTIVE_TOOLS.has(toolName)) {
+        if (!READ_ONLY_TOOLS.has(toolName)) {
           const approved = await confirmFn(toolName, toolArgs);
           if (!approved) {
             output = { error: "User declined the operation." };
@@ -169,7 +181,7 @@ export async function runAgent(
       });
     }
 
-    contents.push({ role: "user", parts: responseParts });
+    history.push({ role: "user", parts: responseParts });
   }
 
   return "(agent reached maximum tool-calling rounds)";
