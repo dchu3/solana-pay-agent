@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "start:telegram": "node dist/telegram.js"
   },
   "keywords": [
     "solana",
@@ -29,6 +30,7 @@
     "bs58": "^6.0.0",
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
+    "grammy": "^1.41.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
