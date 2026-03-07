@@ -5,6 +5,7 @@ import {
   type Part,
 } from "@google/genai";
 import type { McpClient } from "./mcp-client.js";
+import { debug } from "./logger.js";
 
 const SYSTEM_INSTRUCTION = `You are a helpful Solana payment assistant. You have access to tools that let you:
 - Check the wallet USDC balance
@@ -118,6 +119,8 @@ export async function runAgent(
   history.push({ role: "user", parts: [{ text: userMessage }] });
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    debug(`Agent loop round ${round + 1}/${MAX_TOOL_ROUNDS}`);
+
     const response = await ai.models.generateContent({
       model,
       contents: history,
@@ -131,6 +134,7 @@ export async function runAgent(
 
     if (!functionCalls || functionCalls.length === 0) {
       const text = response.text ?? "(no response)";
+      debug(`Model returned final text (${text.length} chars)`);
       // Use raw content to preserve any model metadata (e.g., thought signatures)
       const modelContent = response.candidates?.[0]?.content;
       history.push(modelContent ?? { role: "model", parts: [{ text }] });
@@ -164,6 +168,8 @@ export async function runAgent(
       const toolName = fc.name;
       const toolArgs = (fc.args as Record<string, unknown>) ?? {};
 
+      debug(`Calling tool: ${toolName}(${JSON.stringify(toolArgs)})`);
+
       let output: Record<string, unknown>;
       try {
         if (!READ_ONLY_TOOLS.has(toolName)) {
@@ -179,9 +185,12 @@ export async function runAgent(
 
         const resultText = await mcpClient.callTool(toolName, toolArgs);
         output = { result: resultText };
+        debug(`Tool ${toolName} result: ${resultText}`);
       } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        debug(`Tool ${toolName} error: ${errorMsg}`);
         output = {
-          error: err instanceof Error ? err.message : String(err),
+          error: errorMsg,
         };
       }
 
