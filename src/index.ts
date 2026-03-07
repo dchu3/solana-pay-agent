@@ -5,6 +5,27 @@ import { type Content } from "@google/genai";
 import { runAgent } from "./agent.js";
 import { setVerbose } from "./logger.js";
 
+function printHelp(): void {
+  console.log(`
+Solana Pay Agent — an AI-powered CLI for managing Solana USDC transactions.
+
+Talk to the assistant in plain English. It can check balances, send payments,
+view transaction history, and make x402 protocol payments on your behalf.
+
+Example prompts:
+  What is my USDC balance?
+  Send 5 USDC to <wallet-address>
+  Show my recent incoming payments
+  Pay for <url> using x402
+
+Commands:
+  /help   Show this help message
+  /quit   Exit the application
+
+Destructive actions (like sending payments) will always ask for confirmation.
+`);
+}
+
 async function main(): Promise<void> {
   const verbose =
     process.argv.includes("--verbose") || process.argv.includes("-v");
@@ -23,7 +44,7 @@ async function main(): Promise<void> {
   if (verbose || config.verbose) {
     console.log("Verbose logging enabled (debug output on stderr)");
   }
-  console.log("Type your message, or /quit to exit.\n");
+  console.log("Type your message, /help for usage info, or /quit to exit.\n");
 
   const conversationHistory: Content[] = [];
 
@@ -71,6 +92,10 @@ async function main(): Promise<void> {
       const trimmed = input.trim();
       if (!trimmed) continue;
       if (trimmed === "/quit") break;
+      if (trimmed === "/help") {
+        printHelp();
+        continue;
+      }
 
       try {
         const confirmFn = async (
