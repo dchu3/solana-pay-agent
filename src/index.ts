@@ -4,6 +4,8 @@ import { createMcpClient } from "./mcp-client.js";
 import { type Content } from "@google/genai";
 import { runAgent } from "./agent.js";
 import { setVerbose } from "./logger.js";
+import { createSellerServer } from "./server.js";
+import type { Server } from "node:http";
 
 function printHelp(): void {
   console.log(`
@@ -44,6 +46,12 @@ async function main(): Promise<void> {
   if (verbose || config.verbose) {
     console.log("Verbose logging enabled (debug output on stderr)");
   }
+
+  let sellerServer: Server | undefined;
+  if (config.x402ServerPort) {
+    sellerServer = createSellerServer(mcpClient, config);
+  }
+
   console.log("Type your message, /help for usage info, or /quit to exit.\n");
 
   const conversationHistory: Content[] = [];
@@ -58,6 +66,9 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     rl.close();
+    if (sellerServer) {
+      await new Promise<void>((resolve) => sellerServer!.close(() => resolve()));
+    }
     await mcpClient.close();
   };
 
