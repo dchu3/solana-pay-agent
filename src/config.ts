@@ -15,7 +15,11 @@ const EnvSchema = z.object({
     .min(1, "GEMINI_API_KEY environment variable is required"),
   MCP_SERVER_PATH: z
     .string({ required_error: "MCP_SERVER_PATH environment variable is required" })
-    .min(1, "MCP_SERVER_PATH environment variable is required"),
+    .min(1, "MCP_SERVER_PATH environment variable is required")
+    .refine(
+      (value) => !value.trimStart().startsWith("-"),
+      "MCP_SERVER_PATH must be a script path and must not start with '-'",
+    ),
   SOLANA_PRIVATE_KEY: z
     .string({ required_error: "SOLANA_PRIVATE_KEY environment variable is required" })
     .min(1, "SOLANA_PRIVATE_KEY environment variable is required"),
