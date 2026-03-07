@@ -209,8 +209,18 @@ async function main(): Promise<void> {
     console.log("Bye.");
   };
 
-  process.once("SIGINT", () => void shutdown());
-  process.once("SIGTERM", () => void shutdown());
+  const handleSignal = () => {
+    shutdown().catch((err) => {
+      console.error(
+        "Shutdown error:",
+        err instanceof Error ? err.message : String(err),
+      );
+      process.exit(1);
+    });
+  };
+
+  process.once("SIGINT", handleSignal);
+  process.once("SIGTERM", handleSignal);
 
   console.log("Starting Telegram bot (long polling)...");
   bot.start({
