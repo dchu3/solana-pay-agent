@@ -17,6 +17,10 @@ export interface Config {
   x402FacilitatorUrl: string;
   /** Solana network identifier for x402 (e.g., "solana:mainnet" or "solana:devnet"). */
   x402Network: `${string}:${string}`;
+  /** Telegram bot token from BotFather. */
+  telegramBotToken?: string;
+  /** Telegram chat ID the bot is restricted to. */
+  telegramChatId?: string;
 }
 
 const EnvSchema = z.object({
@@ -60,6 +64,8 @@ const EnvSchema = z.object({
       "X402_SERVER_PORT must be a valid port number (1-65535)",
     ),
   X402_FACILITATOR_URL: z.string().optional(),
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_CHAT_ID: z.string().optional(),
 });
 
 export function loadConfig(): Config {
@@ -118,5 +124,7 @@ export function loadConfig(): Config {
     x402ServerPort: env.X402_SERVER_PORT,
     x402FacilitatorUrl: env.X402_FACILITATOR_URL ?? "https://x402.org/facilitator",
     x402Network: `solana:${solanaNetwork}`,
+    telegramBotToken: env.TELEGRAM_BOT_TOKEN,
+    telegramChatId: env.TELEGRAM_CHAT_ID,
   };
 }

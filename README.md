@@ -7,6 +7,7 @@ A Gemini-powered CLI agent that interacts with the [solana-x402-mcp](https://git
 - **Natural language interface** — describe what you want in plain English
 - **Agentic tool calling** — Gemini automatically selects and invokes the right MCP tools
 - **Full MCP tool support** — wallet balance, send USDC, incoming payments, x402 payments
+- **Telegram bot mode** — interact via a private Telegram bot restricted to a single chat
 
 ## Prerequisites
 
@@ -41,6 +42,8 @@ cp .env.example .env
 - `VERBOSE` (optional): Set to `true` or `1` to enable debug logging
 - `X402_SERVER_PORT` (optional): Port to run the x402 seller HTTP server (e.g. `4021`). Server only starts when set.
 - `X402_FACILITATOR_URL` (optional): x402 facilitator URL (default: `https://x402.org/facilitator`)
+- `TELEGRAM_BOT_TOKEN` (optional): Telegram bot token from [@BotFather](https://t.me/BotFather). Required for `npm run start:telegram`.
+- `TELEGRAM_CHAT_ID` (optional): Telegram chat ID the bot is restricted to. Required for `npm run start:telegram`.
 
 ## Usage
 
@@ -72,6 +75,49 @@ Example prompts:
 ```
 
 The agent connects to the MCP server, discovers available tools, and uses Gemini to decide which tools to call based on your input. Type `/quit` or press Ctrl+C to exit.
+
+## Telegram Bot
+
+The agent can also run as a **private Telegram bot**, allowing you to interact with it from your phone or desktop Telegram client.
+
+### Setup
+
+1. **Create a bot** — Message [@BotFather](https://t.me/BotFather) on Telegram and use `/newbot` to get a bot token.
+2. **Get your chat ID** — Message [@userinfobot](https://t.me/userinfobot) on Telegram to get your numeric chat ID.
+3. **Configure** — Add to your `.env`:
+
+```bash
+TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+TELEGRAM_CHAT_ID=123456789
+```
+
+### Run
+
+```bash
+npm run start:telegram
+```
+
+To enable debug logging:
+
+```bash
+npm run start:telegram -- --verbose
+```
+
+### Bot Commands
+
+| Command | Description |
+|---|---|
+| `/start` | Welcome message and usage examples |
+| `/help` | Show available features |
+| `/reset` | Clear conversation history |
+
+### How It Works
+
+- The bot uses **long polling** (no webhooks or public URL needed).
+- Messages from any chat ID other than `TELEGRAM_CHAT_ID` are **silently ignored**.
+- Destructive actions (like sending USDC) prompt an **inline keyboard** with Yes/No buttons. If no response within 60 seconds, the action is auto-rejected.
+- The bot sends a typing indicator while the agent is processing your request.
+- Conversation history is maintained in-memory across messages (same as the CLI).
 
 ## x402 Seller Server
 
@@ -125,12 +171,16 @@ Payments are received directly to your wallet address (derived from `SOLANA_PRIV
   User (CLI) ─────────▶│ Gemini Agent │────▶│ solana-x402-mcp  │
     readline  ◀─────────│  tool loop   │◀────│   (MCP stdio)    │
                        └─────────────┘     └──────────────────┘
-                                                    ▲
+                              ▲                     ▲
+  User (Telegram) ────▶  Telegram Bot  ─────────────┤
+    grammY (polling)                                │
+                                                    │
   Other agents ────▶  x402 HTTP Server ─────────────┘
    (pay USDC)        (Express + @x402/express)
 ```
 
 - **`src/index.ts`** — Interactive readline CLI entrypoint
+- **`src/telegram.ts`** — Telegram bot entrypoint (grammY, long polling)
 - **`src/agent.ts`** — Gemini agentic loop with function calling
 - **`src/mcp-client.ts`** — MCP client managing the server subprocess
 - **`src/server.ts`** — Express HTTP server with x402 payment middleware
