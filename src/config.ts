@@ -24,7 +24,20 @@ const EnvSchema = z.object({
     .string({ required_error: "SOLANA_PRIVATE_KEY environment variable is required" })
     .min(1, "SOLANA_PRIVATE_KEY environment variable is required"),
   GEMINI_MODEL: z.string().optional(),
-  SOLANA_NETWORK: z.string().optional(),
+  SOLANA_NETWORK: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val) return val;
+      const lower = val.toLowerCase();
+      // Normalize "mainnet-beta" to "mainnet" (Solana RPC cluster name vs MCP server expectation)
+      if (lower === "mainnet-beta") return "mainnet";
+      return lower;
+    })
+    .refine(
+      (val) => !val || val === "mainnet" || val === "devnet",
+      'SOLANA_NETWORK must be "mainnet", "mainnet-beta", or "devnet"',
+    ),
   SOLANA_RPC_URL: z.string().optional(),
   NODE_ENV: z.string().optional(),
 });
