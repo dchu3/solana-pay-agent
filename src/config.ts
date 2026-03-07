@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { z } from "zod";
 
 export interface Config {
   geminiApiKey: string;
@@ -8,48 +9,53 @@ export interface Config {
   mcpServerEnv: Record<string, string>;
 }
 
+const EnvSchema = z.object({
+  GEMINI_API_KEY: z
+    .string({ required_error: "GEMINI_API_KEY environment variable is required" })
+    .min(1, "GEMINI_API_KEY environment variable is required"),
+  MCP_SERVER_PATH: z
+    .string({ required_error: "MCP_SERVER_PATH environment variable is required" })
+    .min(1, "MCP_SERVER_PATH environment variable is required"),
+  SOLANA_PRIVATE_KEY: z
+    .string({ required_error: "SOLANA_PRIVATE_KEY environment variable is required" })
+    .min(1, "SOLANA_PRIVATE_KEY environment variable is required"),
+  GEMINI_MODEL: z.string().optional(),
+  SOLANA_NETWORK: z.string().optional(),
+  SOLANA_RPC_URL: z.string().optional(),
+  PATH: z.string().optional(),
+  HOME: z.string().optional(),
+  NODE_ENV: z.string().optional(),
+});
+
 export function loadConfig(): Config {
-  const geminiApiKey = process.env.GEMINI_API_KEY;
-  if (!geminiApiKey) {
-    throw new Error("GEMINI_API_KEY environment variable is required");
-  }
-
-  const mcpServerPath = process.env.MCP_SERVER_PATH;
-  if (!mcpServerPath) {
-    throw new Error("MCP_SERVER_PATH environment variable is required");
-  }
-
-  const solanaPrivateKey = process.env.SOLANA_PRIVATE_KEY;
-  if (!solanaPrivateKey) {
-    throw new Error("SOLANA_PRIVATE_KEY environment variable is required");
-  }
+  const env = EnvSchema.parse(process.env);
 
   // Allowlist of env vars the MCP server needs (avoids leaking unrelated secrets)
   const mcpServerEnv: Record<string, string> = {
-    SOLANA_PRIVATE_KEY: solanaPrivateKey,
+    SOLANA_PRIVATE_KEY: env.SOLANA_PRIVATE_KEY,
   };
 
-  if (process.env.PATH !== undefined) {
-    mcpServerEnv.PATH = process.env.PATH;
+  if (env.PATH !== undefined) {
+    mcpServerEnv.PATH = env.PATH;
   }
-  if (process.env.HOME !== undefined) {
-    mcpServerEnv.HOME = process.env.HOME;
+  if (env.HOME !== undefined) {
+    mcpServerEnv.HOME = env.HOME;
   }
-  if (process.env.NODE_ENV !== undefined) {
-    mcpServerEnv.NODE_ENV = process.env.NODE_ENV;
+  if (env.NODE_ENV !== undefined) {
+    mcpServerEnv.NODE_ENV = env.NODE_ENV;
   }
 
-  if (process.env.SOLANA_NETWORK) {
-    mcpServerEnv.SOLANA_NETWORK = process.env.SOLANA_NETWORK;
+  if (env.SOLANA_NETWORK) {
+    mcpServerEnv.SOLANA_NETWORK = env.SOLANA_NETWORK;
   }
-  if (process.env.SOLANA_RPC_URL) {
-    mcpServerEnv.SOLANA_RPC_URL = process.env.SOLANA_RPC_URL;
+  if (env.SOLANA_RPC_URL) {
+    mcpServerEnv.SOLANA_RPC_URL = env.SOLANA_RPC_URL;
   }
 
   return {
-    geminiApiKey,
-    geminiModel: process.env.GEMINI_MODEL ?? "gemini-3.1-flash-lite-preview",
-    mcpServerPath,
+    geminiApiKey: env.GEMINI_API_KEY,
+    geminiModel: env.GEMINI_MODEL ?? "gemini-3.1-flash-lite-preview",
+    mcpServerPath: env.MCP_SERVER_PATH,
     mcpServerEnv,
   };
 }

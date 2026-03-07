@@ -16,7 +16,7 @@ export async function createMcpClient(
     command: process.execPath,
     args: [serverPath],
     env,
-    stderr: "pipe",
+    stderr: "inherit",
   });
 
   const client = new Client({ name: "solana-pay-agent", version: "1.0.0" });
