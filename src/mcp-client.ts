@@ -1,7 +1,10 @@
+import { createRequire } from "node:module";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import packageJson from "../package.json" with { type: "json" };
+
+const require = createRequire(import.meta.url);
+const packageJson = require("../package.json") as { version: string };
 
 export interface McpClient {
   tools: Tool[];

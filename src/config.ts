@@ -26,8 +26,6 @@ const EnvSchema = z.object({
   GEMINI_MODEL: z.string().optional(),
   SOLANA_NETWORK: z.string().optional(),
   SOLANA_RPC_URL: z.string().optional(),
-  PATH: z.string().optional(),
-  HOME: z.string().optional(),
   NODE_ENV: z.string().optional(),
 });
 
@@ -39,14 +37,22 @@ export function loadConfig(): Config {
     SOLANA_PRIVATE_KEY: env.SOLANA_PRIVATE_KEY,
   };
 
-  if (env.PATH !== undefined) {
-    mcpServerEnv.PATH = env.PATH;
-  }
-  if (env.HOME !== undefined) {
-    mcpServerEnv.HOME = env.HOME;
-  }
-  if (env.NODE_ENV !== undefined) {
-    mcpServerEnv.NODE_ENV = env.NODE_ENV;
+  // Forward OS-critical env vars so the subprocess works across platforms
+  const platformVars = [
+    "PATH",
+    "HOME",
+    "NODE_ENV",
+    // Windows-critical
+    "SystemRoot",
+    "TEMP",
+    "TMP",
+    "USERPROFILE",
+    "APPDATA",
+  ];
+  for (const key of platformVars) {
+    if (process.env[key] !== undefined) {
+      mcpServerEnv[key] = process.env[key]!;
+    }
   }
 
   if (env.SOLANA_NETWORK) {
