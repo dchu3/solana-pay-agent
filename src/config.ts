@@ -5,9 +5,14 @@ import bs58 from "bs58";
 export interface Config {
   geminiApiKey: string;
   geminiModel: string;
-  mcpServerPath: string;
+  /** Path to local MCP server script. Undefined when using a remote MCP URL. */
+  mcpServerPath?: string;
+  /** URL of a remote MCP server (StreamableHTTP). Undefined when using a local server. */
+  remoteMcpUrl?: string;
   /** The user's Solana wallet public address (derived from SOLANA_PRIVATE_KEY). */
   walletAddress: string;
+  /** Base58-encoded Solana private key (needed for x402 payments to remote MCP). */
+  solanaPrivateKey: string;
   /** Environment variables forwarded to the MCP server subprocess. */
   mcpServerEnv: Record<string, string>;
   verbose: boolean;
@@ -28,12 +33,32 @@ const EnvSchema = z.object({
     .string({ required_error: "GEMINI_API_KEY environment variable is required" })
     .min(1, "GEMINI_API_KEY environment variable is required"),
   MCP_SERVER_PATH: z
-    .string({ required_error: "MCP_SERVER_PATH environment variable is required" })
-    .min(1, "MCP_SERVER_PATH environment variable is required")
+    .string()
+    .min(1, "MCP_SERVER_PATH must not be empty")
     .refine(
       (value) => !value.trimStart().startsWith("-"),
       "MCP_SERVER_PATH must be a script path and must not start with '-'",
-    ),
+    )
+    .optional(),
+  REMOTE_MCP_URL: z
+    .string()
+    .url("REMOTE_MCP_URL must be a valid URL")
+    .refine(
+      (value) => {
+        const parsed = new URL(value);
+        if (parsed.protocol === "https:") {
+          return true;
+        }
+        return (
+          parsed.protocol === "http:" &&
+          (parsed.hostname === "localhost" ||
+            parsed.hostname === "127.0.0.1" ||
+            parsed.hostname === "[::1]")
+        );
+      },
+      "REMOTE_MCP_URL must use https://; http:// is only allowed for localhost/127.0.0.1/[::1]",
+    )
+    .optional(),
   SOLANA_PRIVATE_KEY: z
     .string({ required_error: "SOLANA_PRIVATE_KEY environment variable is required" })
     .min(1, "SOLANA_PRIVATE_KEY environment variable is required"),
@@ -70,6 +95,17 @@ const EnvSchema = z.object({
 
 export function loadConfig(): Config {
   const env = EnvSchema.parse(process.env);
+
+  if (!env.MCP_SERVER_PATH && !env.REMOTE_MCP_URL) {
+    throw new Error(
+      "Either MCP_SERVER_PATH or REMOTE_MCP_URL environment variable is required",
+    );
+  }
+  if (env.MCP_SERVER_PATH && env.REMOTE_MCP_URL) {
+    throw new Error(
+      "Exactly one of MCP_SERVER_PATH or REMOTE_MCP_URL must be set; found both.",
+    );
+  }
 
   // Allowlist of env vars the MCP server needs (avoids leaking unrelated secrets)
   const mcpServerEnv: Record<string, string> = {
@@ -118,7 +154,9 @@ export function loadConfig(): Config {
     geminiApiKey: env.GEMINI_API_KEY,
     geminiModel: env.GEMINI_MODEL ?? "gemini-3.1-flash-lite-preview",
     mcpServerPath: env.MCP_SERVER_PATH,
+    remoteMcpUrl: env.REMOTE_MCP_URL,
     walletAddress,
+    solanaPrivateKey: env.SOLANA_PRIVATE_KEY,
     mcpServerEnv,
     verbose: env.VERBOSE === "true" || env.VERBOSE === "1",
     x402ServerPort: env.X402_SERVER_PORT,

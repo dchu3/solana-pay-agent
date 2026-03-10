@@ -11,8 +11,8 @@ A Gemini-powered CLI agent that interacts with the [solana-x402-mcp](https://git
 
 ## Prerequisites
 
-- Node.js 18+
-- A compiled [solana-x402-mcp](https://github.com/dchu3/solana-x402-mcp) server (`npm run build` in that repo)
+- Node.js 20.18.0+ (required by `@solana/kit`)
+- A compiled [solana-x402-mcp](https://github.com/dchu3/solana-x402-mcp) server (`npm run build` in that repo), **or** a remote MCP server URL (`REMOTE_MCP_URL`)
 - A [Google AI Studio](https://aistudio.google.com/) API key
 - A Solana wallet private key (base58-encoded)
 
