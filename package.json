@@ -19,7 +19,7 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.18.0"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",

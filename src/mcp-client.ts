@@ -82,8 +82,11 @@ export async function createMcpClient(
 
 /**
  * Connect to a remote MCP server over StreamableHTTP with x402 payment support.
- * When the server returns 402, the x402 fetch wrapper automatically signs a
- * Solana USDC payment and retries the request.
+ *
+ * Plain fetch is used for the transport (connect / listTools) so that metadata
+ * calls never trigger an automatic payment. The x402-paying fetch is only used
+ * inside callTool, where the agent's confirmation flow has already approved the
+ * call, preventing unexpected charges during setup.
  */
 export async function createRemoteMcpClient(
   url: string,
@@ -91,10 +94,9 @@ export async function createRemoteMcpClient(
 ): Promise<McpClient> {
   const paidFetch = await createX402Fetch(solanaPrivateKey);
 
-  const transport = new StreamableHTTPClientTransport(
-    new URL(url),
-    { fetch: paidFetch },
-  );
+  // Use a separate transport for paid tool calls so that connect/listTools
+  // go through plain fetch and never trigger x402 payments.
+  const transport = new StreamableHTTPClientTransport(new URL(url));
 
   const client = new Client({ name: "solana-pay-agent", version: packageJson.version });
 
@@ -113,27 +115,41 @@ export async function createRemoteMcpClient(
         args: Record<string, unknown>,
       ): Promise<string> {
         debug(`MCP callTool: ${name}(${JSON.stringify(args)})`);
-        const result = await client.callTool({ name, arguments: args });
-        debug(`MCP callTool ${name} raw result: ${JSON.stringify(result)}`);
 
-        const parts = (result.content ?? []) as Array<{
-          type: string;
-          text?: string;
-          [key: string]: unknown;
-        }>;
-        return parts
-          .map((p) => {
-            if (p.type === "text" && typeof p.text === "string") {
-              return p.text;
-            }
-            try {
-              return JSON.stringify(p);
-            } catch {
-              return String(p);
-            }
-          })
-          .filter((s) => s.length > 0)
-          .join("\n");
+        // Each tool call uses a fresh x402-paying transport so the payment
+        // wrapper can intercept 402 responses and retry with a signed payment.
+        const paidTransport = new StreamableHTTPClientTransport(
+          new URL(url),
+          { fetch: paidFetch },
+        );
+        const paidClient = new Client({ name: "solana-pay-agent", version: packageJson.version });
+        await paidClient.connect(paidTransport);
+
+        try {
+          const result = await paidClient.callTool({ name, arguments: args });
+          debug(`MCP callTool ${name} raw result: ${JSON.stringify(result)}`);
+
+          const parts = (result.content ?? []) as Array<{
+            type: string;
+            text?: string;
+            [key: string]: unknown;
+          }>;
+          return parts
+            .map((p) => {
+              if (p.type === "text" && typeof p.text === "string") {
+                return p.text;
+              }
+              try {
+                return JSON.stringify(p);
+              } catch {
+                return String(p);
+              }
+            })
+            .filter((s) => s.length > 0)
+            .join("\n");
+        } finally {
+          await paidClient.close().catch(() => {});
+        }
       },
 
       async close(): Promise<void> {

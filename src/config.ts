@@ -34,7 +34,7 @@ const EnvSchema = z.object({
     .min(1, "GEMINI_API_KEY environment variable is required"),
   MCP_SERVER_PATH: z
     .string()
-    .min(1)
+    .min(1, "MCP_SERVER_PATH must not be empty")
     .refine(
       (value) => !value.trimStart().startsWith("-"),
       "MCP_SERVER_PATH must be a script path and must not start with '-'",

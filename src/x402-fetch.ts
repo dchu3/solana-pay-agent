@@ -26,6 +26,9 @@ export async function createX402Fetch(
     input: RequestInfo | URL,
     init?: RequestInit,
   ): Promise<Response> => {
+    // Clone Request inputs so the body can be re-sent on a 402 retry.
+    // If input is a Request with a body, the first fetch consumes it.
+    const retryInput = input instanceof Request ? input.clone() : input;
     const response = await globalThis.fetch(input, init);
 
     if (response.status !== 402) {
@@ -34,7 +37,16 @@ export async function createX402Fetch(
 
     debug("Received 402 — processing x402 payment");
 
-    const body = await response.json();
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      debug("Failed to parse 402 response body as JSON");
+      throw new Error(
+        "x402 payment challenge response is not valid JSON — cannot process payment",
+      );
+    }
+
     const paymentRequired = httpClient.getPaymentRequiredResponse(
       (name: string) => response.headers.get(name),
       body,
@@ -45,7 +57,7 @@ export async function createX402Fetch(
     if (hookHeaders) {
       debug("Hook provided headers, retrying without payment");
       const mergedInit = { ...init, headers: { ...headersToRecord(init?.headers), ...hookHeaders } };
-      return globalThis.fetch(input, mergedInit);
+      return globalThis.fetch(retryInput, mergedInit);
     }
 
     const paymentPayload = await httpClient.createPaymentPayload(paymentRequired);
@@ -58,7 +70,7 @@ export async function createX402Fetch(
       headers: { ...headersToRecord(init?.headers), ...paymentHeaders },
     };
 
-    return globalThis.fetch(input, retryInit);
+    return globalThis.fetch(retryInput, retryInit);
   };
 
   return wrappedFetch;
