@@ -9,9 +9,18 @@ import { createX402Fetch } from "./x402-fetch.js";
 const require = createRequire(import.meta.url);
 const packageJson = require("../package.json") as { version: string };
 
+export interface McpCallOptions {
+  allowPayment?: boolean;
+}
+
 export interface McpClient {
   tools: Tool[];
-  callTool(name: string, args: Record<string, unknown>): Promise<string>;
+  requiresConfirmationForAllCalls: boolean;
+  callTool(
+    name: string,
+    args: Record<string, unknown>,
+    options?: McpCallOptions,
+  ): Promise<string>;
   close(): Promise<void>;
 }
 
@@ -37,10 +46,12 @@ export async function createMcpClient(
 
     return {
       tools,
+      requiresConfirmationForAllCalls: false,
 
       async callTool(
         name: string,
         args: Record<string, unknown>,
+        _options?: McpCallOptions,
       ): Promise<string> {
         debug(`MCP callTool: ${name}(${JSON.stringify(args)})`);
         const result = await client.callTool({ name, arguments: args });
@@ -110,27 +121,43 @@ export async function createRemoteMcpClient(
     const { tools } = await client.listTools();
     debug(`Remote MCP server provides ${tools.length} tools: ${tools.map((t) => t.name).join(", ")}`);
     let paidClient: Client | undefined;
+    let paidClientPromise: Promise<Client> | undefined;
 
-    return {
-      tools,
-
-      async callTool(
-        name: string,
-        args: Record<string, unknown>,
-      ): Promise<string> {
-        debug(`MCP callTool: ${name}(${JSON.stringify(args)})`);
-
-        // Lazily initialize and reuse a paid client for tool calls.
-        if (!paidClient) {
+    const getPaidClient = async (): Promise<Client> => {
+      if (!paidClientPromise) {
+        paidClientPromise = (async () => {
           const paidTransport = new StreamableHTTPClientTransport(
             new URL(url),
             { fetch: paidFetch },
           );
-          paidClient = new Client({ name: "solana-pay-agent", version: packageJson.version });
-          await paidClient.connect(paidTransport);
-        }
+          const nextClient = new Client({
+            name: "solana-pay-agent",
+            version: packageJson.version,
+          });
+          await nextClient.connect(paidTransport);
+          paidClient = nextClient;
+          return nextClient;
+        })().catch((err) => {
+          paidClientPromise = undefined;
+          throw err;
+        });
+      }
 
-        const result = await paidClient.callTool({ name, arguments: args });
+      return paidClientPromise;
+    };
+
+    return {
+      tools,
+      requiresConfirmationForAllCalls: true,
+
+      async callTool(
+        name: string,
+        args: Record<string, unknown>,
+        options?: McpCallOptions,
+      ): Promise<string> {
+        debug(`MCP callTool: ${name}(${JSON.stringify(args)})`);
+        const targetClient = options?.allowPayment ? await getPaidClient() : client;
+        const result = await targetClient.callTool({ name, arguments: args });
         debug(`MCP callTool ${name} raw result: ${JSON.stringify(result)}`);
 
         const parts = (result.content ?? []) as Array<{
@@ -154,10 +181,14 @@ export async function createRemoteMcpClient(
       },
 
       async close(): Promise<void> {
+        if (paidClientPromise) {
+          await paidClientPromise.catch(() => undefined);
+        }
         if (paidClient) {
           await paidClient.close().catch(() => {});
           paidClient = undefined;
         }
+        paidClientPromise = undefined;
         await client.close();
       },
     };

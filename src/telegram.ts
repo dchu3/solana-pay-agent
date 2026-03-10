@@ -70,9 +70,23 @@ async function main(): Promise<void> {
   const allowedChatId = config.telegramChatId;
 
   console.log("Connecting to MCP server...");
-  const mcpClient = config.remoteMcpUrl
-    ? await createRemoteMcpClient(config.remoteMcpUrl, config.solanaPrivateKey)
-    : await createMcpClient(config.mcpServerPath!, config.mcpServerEnv);
+  let mcpClient: McpClient;
+  if (config.remoteMcpUrl) {
+    mcpClient = await createRemoteMcpClient(
+      config.remoteMcpUrl,
+      config.solanaPrivateKey,
+    );
+  } else if (config.mcpServerPath) {
+    mcpClient = await createMcpClient(
+      config.mcpServerPath,
+      config.mcpServerEnv,
+    );
+  } else {
+    console.error(
+      "Either REMOTE_MCP_URL or MCP_SERVER_PATH must be set in your .env file.",
+    );
+    process.exit(1);
+  }
 
   const toolNames = mcpClient.tools.map((t) => t.name).join(", ");
   console.log(`Connected. Available tools: ${toolNames}`);

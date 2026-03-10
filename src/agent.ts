@@ -175,7 +175,11 @@ export async function runAgent(
 
       let output: Record<string, unknown>;
       try {
-        if (!READ_ONLY_TOOLS.has(toolName)) {
+        const needsConfirmation =
+          mcpClient.requiresConfirmationForAllCalls ||
+          !READ_ONLY_TOOLS.has(toolName);
+
+        if (needsConfirmation) {
           const approved = await confirmFn(toolName, toolArgs);
           if (!approved) {
             output = { error: "User declined the operation." };
@@ -186,7 +190,9 @@ export async function runAgent(
           }
         }
 
-        const resultText = await mcpClient.callTool(toolName, toolArgs);
+        const resultText = await mcpClient.callTool(toolName, toolArgs, {
+          allowPayment: mcpClient.requiresConfirmationForAllCalls,
+        });
         output = { result: resultText };
         debug(`Tool ${toolName} result: ${resultText}`);
       } catch (err) {

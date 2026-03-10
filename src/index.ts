@@ -1,6 +1,7 @@
 import * as readline from "node:readline/promises";
 import { loadConfig } from "./config.js";
 import { createMcpClient, createRemoteMcpClient } from "./mcp-client.js";
+import type { McpClient } from "./mcp-client.js";
 import { type Content } from "@google/genai";
 import { runAgent } from "./agent.js";
 import { setVerbose } from "./logger.js";
@@ -35,9 +36,22 @@ async function main(): Promise<void> {
   setVerbose(verbose || config.verbose);
 
   console.log("Connecting to MCP server...");
-  const mcpClient = config.remoteMcpUrl
-    ? await createRemoteMcpClient(config.remoteMcpUrl, config.solanaPrivateKey)
-    : await createMcpClient(config.mcpServerPath!, config.mcpServerEnv);
+  let mcpClient: McpClient;
+  if (config.remoteMcpUrl) {
+    mcpClient = await createRemoteMcpClient(
+      config.remoteMcpUrl,
+      config.solanaPrivateKey,
+    );
+  } else if (config.mcpServerPath) {
+    mcpClient = await createMcpClient(
+      config.mcpServerPath,
+      config.mcpServerEnv,
+    );
+  } else {
+    throw new Error(
+      "Invalid MCP configuration: expected either remoteMcpUrl or mcpServerPath",
+    );
+  }
 
   const toolNames = mcpClient.tools.map((t) => t.name).join(", ");
   console.log(`Connected. Available tools: ${toolNames}`);
