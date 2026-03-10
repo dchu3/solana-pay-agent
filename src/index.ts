@@ -1,6 +1,6 @@
 import * as readline from "node:readline/promises";
 import { loadConfig } from "./config.js";
-import { createMcpClient } from "./mcp-client.js";
+import { createMcpClient, createRemoteMcpClient } from "./mcp-client.js";
 import { type Content } from "@google/genai";
 import { runAgent } from "./agent.js";
 import { setVerbose } from "./logger.js";
@@ -35,10 +35,9 @@ async function main(): Promise<void> {
   setVerbose(verbose || config.verbose);
 
   console.log("Connecting to MCP server...");
-  const mcpClient = await createMcpClient(
-    config.mcpServerPath,
-    config.mcpServerEnv,
-  );
+  const mcpClient = config.remoteMcpUrl
+    ? await createRemoteMcpClient(config.remoteMcpUrl, config.solanaPrivateKey)
+    : await createMcpClient(config.mcpServerPath!, config.mcpServerEnv);
 
   const toolNames = mcpClient.tools.map((t) => t.name).join(", ");
   console.log(`Connected. Available tools: ${toolNames}`);

@@ -24,6 +24,7 @@
   "dependencies": {
     "@google/genai": "^1.44.0",
     "@modelcontextprotocol/sdk": "^1.6.1",
+    "@solana/kit": "^5.5.1",
     "@x402/core": "^2.6.0",
     "@x402/express": "^2.6.0",
     "@x402/svm": "^2.6.0",
