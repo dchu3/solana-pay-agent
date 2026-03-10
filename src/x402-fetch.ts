@@ -16,6 +16,12 @@ export async function createX402Fetch(
   privateKeyBase58: string,
 ): Promise<typeof globalThis.fetch> {
   const keypairBytes = bs58.decode(privateKeyBase58);
+  if (keypairBytes.length !== 64) {
+    throw new Error(
+      `Invalid Solana private key: expected 64 bytes after base58 decoding, got ${keypairBytes.length}. ` +
+        "Ensure SOLANA_PRIVATE_KEY is a valid base58-encoded 64-byte keypair.",
+    );
+  }
   const signer = await createKeyPairSignerFromBytes(keypairBytes);
 
   const coreClient = new x402Client();

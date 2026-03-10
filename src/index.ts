@@ -48,8 +48,10 @@ async function main(): Promise<void> {
       config.mcpServerEnv,
     );
   } else {
-    throw new Error(
-      "Invalid MCP configuration: expected either remoteMcpUrl or mcpServerPath",
+    // loadConfig() guarantees mcpServerPath is set when remoteMcpUrl is unset.
+    mcpClient = await createMcpClient(
+      config.mcpServerPath!,
+      config.mcpServerEnv,
     );
   }
 

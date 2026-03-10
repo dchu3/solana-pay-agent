@@ -82,10 +82,11 @@ async function main(): Promise<void> {
       config.mcpServerEnv,
     );
   } else {
-    console.error(
-      "Either REMOTE_MCP_URL or MCP_SERVER_PATH must be set in your .env file.",
+    // loadConfig() guarantees mcpServerPath is set when remoteMcpUrl is unset.
+    mcpClient = await createMcpClient(
+      config.mcpServerPath!,
+      config.mcpServerEnv,
     );
-    process.exit(1);
   }
 
   const toolNames = mcpClient.tools.map((t) => t.name).join(", ");

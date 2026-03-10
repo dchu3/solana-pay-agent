@@ -156,28 +156,50 @@ export async function createRemoteMcpClient(
         options?: McpCallOptions,
       ): Promise<string> {
         debug(`MCP callTool: ${name}(${JSON.stringify(args)})`);
-        const targetClient = options?.allowPayment ? await getPaidClient() : client;
-        const result = await targetClient.callTool({ name, arguments: args });
-        debug(`MCP callTool ${name} raw result: ${JSON.stringify(result)}`);
 
-        const parts = (result.content ?? []) as Array<{
-          type: string;
-          text?: string;
-          [key: string]: unknown;
-        }>;
-        return parts
-          .map((p) => {
-            if (p.type === "text" && typeof p.text === "string") {
-              return p.text;
-            }
-            try {
-              return JSON.stringify(p);
-            } catch {
-              return String(p);
-            }
-          })
-          .filter((s) => s.length > 0)
-          .join("\n");
+        // Try the plain (unpaid) client first. If the server responds with a
+        // 402 Payment Required error and the caller has approved payment, retry
+        // via the x402-paying transport. This avoids creating a second
+        // connection unless payment is actually required.
+        const invokeWithClient = async (targetClient: Client): Promise<string> => {
+          const result = await targetClient.callTool({ name, arguments: args });
+          debug(`MCP callTool ${name} raw result: ${JSON.stringify(result)}`);
+
+          const parts = (result.content ?? []) as Array<{
+            type: string;
+            text?: string;
+            [key: string]: unknown;
+          }>;
+          return parts
+            .map((p) => {
+              if (p.type === "text" && typeof p.text === "string") {
+                return p.text;
+              }
+              try {
+                return JSON.stringify(p);
+              } catch {
+                return String(p);
+              }
+            })
+            .filter((s) => s.length > 0)
+            .join("\n");
+        };
+
+        try {
+          return await invokeWithClient(client);
+        } catch (err) {
+          if (!options?.allowPayment) {
+            throw err;
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          const lower = message.toLowerCase();
+          if (!lower.includes("402") && !lower.includes("payment required")) {
+            throw err;
+          }
+          debug(`Tool ${name} returned 402 — retrying with x402 payment`);
+          const paidClientInstance = await getPaidClient();
+          return invokeWithClient(paidClientInstance);
+        }
       },
 
       async close(): Promise<void> {
