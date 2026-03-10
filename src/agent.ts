@@ -7,15 +7,42 @@ import {
 import type { McpClient } from "./mcp-client.js";
 import { debug } from "./logger.js";
 
-const SYSTEM_INSTRUCTION = (walletAddress: string) => `You are a helpful Solana payment assistant. The user's wallet address is: ${walletAddress}
+const SYSTEM_INSTRUCTION = (walletAddress: string, toolNames: string[]) => {
+  const toolSet = new Set(toolNames);
+  const capabilities: string[] = [];
+  if (toolSet.has("get_usdc_balance") || toolSet.has("get_sol_balance"))
+    capabilities.push("- Check the wallet USDC/SOL balance");
+  if (toolSet.has("send_usdc")) capabilities.push("- Send USDC payments to other wallets");
+  if (toolSet.has("get_incoming_usdc_payments"))
+    capabilities.push("- View recent incoming USDC payments");
+  if (toolSet.has("analyze_token"))
+    capabilities.push(
+      "- Analyze tokens using the analyze_token tool (payment is handled automatically by the x402 protocol — do NOT send USDC manually)",
+    );
+
+  // Fallback for unknown tools
+  const knownTools = new Set([
+    "get_usdc_balance",
+    "get_sol_balance",
+    "send_usdc",
+    "get_incoming_usdc_payments",
+    "get_wallet_info",
+    "analyze_token",
+  ]);
+  const unknownTools = toolNames.filter((t) => !knownTools.has(t));
+  if (unknownTools.length > 0) {
+    capabilities.push(`- Use these tools: ${unknownTools.join(", ")}`);
+  }
+
+  return `You are a helpful Solana assistant. The user's wallet address is: ${walletAddress}
 
 You have access to tools that let you:
-- Check the wallet USDC balance
-- Send USDC payments to other wallets
-- View recent incoming USDC payments
-- Make payments via the x402 protocol
+${capabilities.join("\n")}
 
-When the user refers to "my wallet", "my balance", or similar, use their wallet address shown above. When the user asks you to perform a payment action, use the appropriate tool. Always confirm amounts and addresses before executing transactions. Report results clearly.`;
+When the user refers to "my wallet", "my balance", or similar, use their wallet address shown above. When the user asks you to perform an action, use the appropriate tool. Always confirm amounts and addresses before executing transactions. Report results clearly.
+
+IMPORTANT: Only use tools that are explicitly available to you. Do NOT attempt to call tools that are not in your function declarations. If analyze_token requires payment, it is handled automatically — never send USDC manually to pay for tool access.`;
+};
 
 /**
  * Read-only tools that can run without user confirmation.
@@ -118,6 +145,7 @@ export async function runAgent(
   const ai = new GoogleGenAI({ apiKey });
 
   const functionDeclarations = mcpToolsToGeminiDeclarations(mcpClient);
+  const toolNames = mcpClient.tools.map((t) => t.name);
 
   history.push({ role: "user", parts: [{ text: userMessage }] });
 
@@ -128,7 +156,7 @@ export async function runAgent(
       model,
       contents: history,
       config: {
-        systemInstruction: SYSTEM_INSTRUCTION(walletAddress),
+        systemInstruction: SYSTEM_INSTRUCTION(walletAddress, toolNames),
         tools: [{ functionDeclarations }],
       },
     });

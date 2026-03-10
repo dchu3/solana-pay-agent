@@ -105,8 +105,9 @@ export async function createMcpClient(
 export async function createRemoteMcpClient(
   url: string,
   solanaPrivateKey: string,
+  rpcUrl?: string,
 ): Promise<McpClient> {
-  const paidFetch = await createX402Fetch(solanaPrivateKey);
+  const paidFetch = await createX402Fetch(solanaPrivateKey, rpcUrl);
 
   // Use a separate transport for paid tool calls so that connect/listTools
   // go through plain fetch and never trigger x402 payments.
@@ -197,8 +198,17 @@ export async function createRemoteMcpClient(
             throw err;
           }
           debug(`Tool ${name} returned 402 — retrying with x402 payment`);
-          const paidClientInstance = await getPaidClient();
-          return invokeWithClient(paidClientInstance);
+          try {
+            const paidClientInstance = await getPaidClient();
+            return await invokeWithClient(paidClientInstance);
+          } catch (paidErr) {
+            const paidMsg =
+              paidErr instanceof Error ? paidErr.message : String(paidErr);
+            debug(`x402 paid client failed: ${paidMsg}`);
+            throw new Error(
+              `x402 payment failed for tool "${name}": ${paidMsg}`,
+            );
+          }
         }
       },
 
