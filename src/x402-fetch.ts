@@ -54,9 +54,13 @@ export async function createX402Fetch(
 
     // Check if any registered hook can resolve without payment
     const hookHeaders = await httpClient.handlePaymentRequired(paymentRequired);
+    const baseHeaders = {
+      ...requestHeadersToRecord(input),
+      ...headersToRecord(init?.headers),
+    };
     if (hookHeaders) {
       debug("Hook provided headers, retrying without payment");
-      const mergedInit = { ...init, headers: { ...headersToRecord(init?.headers), ...hookHeaders } };
+      const mergedInit = { ...init, headers: { ...baseHeaders, ...hookHeaders } };
       return globalThis.fetch(retryInput, mergedInit);
     }
 
@@ -67,13 +71,22 @@ export async function createX402Fetch(
 
     const retryInit: RequestInit = {
       ...init,
-      headers: { ...headersToRecord(init?.headers), ...paymentHeaders },
+      headers: { ...baseHeaders, ...paymentHeaders },
     };
 
     return globalThis.fetch(retryInput, retryInit);
   };
 
   return wrappedFetch;
+}
+
+function requestHeadersToRecord(
+  input: RequestInfo | URL,
+): Record<string, string> {
+  if (input instanceof Request) {
+    return headersToRecord(input.headers);
+  }
+  return {};
 }
 
 function headersToRecord(

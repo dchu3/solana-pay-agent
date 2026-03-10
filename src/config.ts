@@ -43,6 +43,21 @@ const EnvSchema = z.object({
   REMOTE_MCP_URL: z
     .string()
     .url("REMOTE_MCP_URL must be a valid URL")
+    .refine(
+      (value) => {
+        const parsed = new URL(value);
+        if (parsed.protocol === "https:") {
+          return true;
+        }
+        return (
+          parsed.protocol === "http:" &&
+          (parsed.hostname === "localhost" ||
+            parsed.hostname === "127.0.0.1" ||
+            parsed.hostname === "[::1]")
+        );
+      },
+      "REMOTE_MCP_URL must use https://; http:// is only allowed for localhost/127.0.0.1/[::1]",
+    )
     .optional(),
   SOLANA_PRIVATE_KEY: z
     .string({ required_error: "SOLANA_PRIVATE_KEY environment variable is required" })
@@ -84,6 +99,11 @@ export function loadConfig(): Config {
   if (!env.MCP_SERVER_PATH && !env.REMOTE_MCP_URL) {
     throw new Error(
       "Either MCP_SERVER_PATH or REMOTE_MCP_URL environment variable is required",
+    );
+  }
+  if (env.MCP_SERVER_PATH && env.REMOTE_MCP_URL) {
+    throw new Error(
+      "Exactly one of MCP_SERVER_PATH or REMOTE_MCP_URL must be set; found both.",
     );
   }
 
