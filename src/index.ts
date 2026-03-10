@@ -42,13 +42,8 @@ async function main(): Promise<void> {
       config.remoteMcpUrl,
       config.solanaPrivateKey,
     );
-  } else if (config.mcpServerPath) {
-    mcpClient = await createMcpClient(
-      config.mcpServerPath,
-      config.mcpServerEnv,
-    );
   } else {
-    // loadConfig() guarantees mcpServerPath is set when remoteMcpUrl is unset.
+    // loadConfig() guarantees mcpServerPath is set when remoteMcpUrl is not.
     mcpClient = await createMcpClient(
       config.mcpServerPath!,
       config.mcpServerEnv,
