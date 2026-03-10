@@ -13,6 +13,8 @@ export interface Config {
   walletAddress: string;
   /** Base58-encoded Solana private key (needed for x402 payments to remote MCP). */
   solanaPrivateKey: string;
+  /** Custom Solana RPC URL. Used by the x402 SDK to avoid public mainnet rate limits. */
+  solanaRpcUrl?: string;
   /** Environment variables forwarded to the MCP server subprocess. */
   mcpServerEnv: Record<string, string>;
   verbose: boolean;
@@ -157,6 +159,7 @@ export function loadConfig(): Config {
     remoteMcpUrl: env.REMOTE_MCP_URL,
     walletAddress,
     solanaPrivateKey: env.SOLANA_PRIVATE_KEY,
+    solanaRpcUrl: env.SOLANA_RPC_URL,
     mcpServerEnv,
     verbose: env.VERBOSE === "true" || env.VERBOSE === "1",
     x402ServerPort: env.X402_SERVER_PORT,

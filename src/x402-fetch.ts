@@ -1,8 +1,12 @@
 import { createKeyPairSignerFromBytes } from "@solana/kit";
 import { x402Client, x402HTTPClient } from "@x402/core/client";
-import { registerExactSvmScheme } from "@x402/svm/exact/client";
+import { ExactSvmScheme } from "@x402/svm/exact/client";
+import { ExactSvmSchemeV1 } from "@x402/svm/exact/v1/client";
 import bs58 from "bs58";
 import { debug } from "./logger.js";
+
+/** v1 legacy network names used by the x402 SDK for scheme registration. */
+const V1_NETWORKS = ["solana", "solana-devnet", "solana-testnet"];
 
 /**
  * Build a fetch function that transparently handles x402 payment challenges.
@@ -11,9 +15,13 @@ import { debug } from "./logger.js";
  * 1. Parses the payment requirements from the response
  * 2. Creates a signed Solana USDC payment payload via the x402 SDK
  * 3. Retries the original request with the X-PAYMENT header attached
+ *
+ * @param privateKeyBase58 - Base58-encoded 64-byte Solana keypair
+ * @param rpcUrl - Optional custom Solana RPC URL (avoids public mainnet rate limits)
  */
 export async function createX402Fetch(
   privateKeyBase58: string,
+  rpcUrl?: string,
 ): Promise<typeof globalThis.fetch> {
   const keypairBytes = bs58.decode(privateKeyBase58);
   if (keypairBytes.length !== 64) {
@@ -24,9 +32,19 @@ export async function createX402Fetch(
   }
   const signer = await createKeyPairSignerFromBytes(keypairBytes);
 
+  // Register schemes manually (instead of registerExactSvmScheme) so we can
+  // forward the user's custom RPC URL to avoid public mainnet rate limits.
+  const svmConfig = rpcUrl ? { rpcUrl } : undefined;
   const coreClient = new x402Client();
-  registerExactSvmScheme(coreClient, { signer });
+  coreClient.register("solana:*", new ExactSvmScheme(signer, svmConfig));
+  for (const network of V1_NETWORKS) {
+    coreClient.registerV1(network, new ExactSvmSchemeV1(signer, svmConfig));
+  }
   const httpClient = new x402HTTPClient(coreClient);
+
+  if (rpcUrl) {
+    debug(`x402 SDK using custom RPC: ${rpcUrl}`);
+  }
 
   const wrappedFetch: typeof globalThis.fetch = async (
     input: RequestInfo | URL,
@@ -53,10 +71,19 @@ export async function createX402Fetch(
       );
     }
 
-    const paymentRequired = httpClient.getPaymentRequiredResponse(
-      (name: string) => response.headers.get(name),
-      body,
-    );
+    debug(`x402 payment requirements body: ${JSON.stringify(body)}`);
+
+    let paymentRequired;
+    try {
+      paymentRequired = httpClient.getPaymentRequiredResponse(
+        (name: string) => response.headers.get(name),
+        body,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      debug(`Failed to parse payment requirements: ${msg}`);
+      throw new Error(`x402: failed to parse payment requirements — ${msg}`);
+    }
 
     // Check if any registered hook can resolve without payment
     const hookHeaders = await httpClient.handlePaymentRequired(paymentRequired);
@@ -70,7 +97,14 @@ export async function createX402Fetch(
       return globalThis.fetch(retryInput, mergedInit);
     }
 
-    const paymentPayload = await httpClient.createPaymentPayload(paymentRequired);
+    let paymentPayload;
+    try {
+      paymentPayload = await httpClient.createPaymentPayload(paymentRequired);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      debug(`x402 payment creation failed: ${msg}`);
+      throw new Error(`x402: payment creation failed — ${msg}`);
+    }
     const paymentHeaders = httpClient.encodePaymentSignatureHeader(paymentPayload);
 
     debug("Payment payload created, retrying with X-PAYMENT header");
