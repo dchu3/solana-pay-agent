@@ -6,8 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "start:telegram": "node dist/telegram.js"
+    "start": "node dist/index.js"
   },
   "keywords": [
     "solana",
@@ -26,16 +25,12 @@
     "@modelcontextprotocol/sdk": "^1.6.1",
     "@solana/kit": "^5.5.1",
     "@x402/core": "^2.6.0",
-    "@x402/express": "^2.6.0",
     "@x402/svm": "^2.6.0",
     "bs58": "^6.0.0",
     "dotenv": "^16.4.7",
-    "express": "^5.2.1",
-    "grammy": "^1.41.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
     "@types/node": "^22.13.10",
     "typescript": "^5.7.3"
   }
