@@ -18,16 +18,6 @@ export interface Config {
   /** Environment variables forwarded to the MCP server subprocess. */
   mcpServerEnv: Record<string, string>;
   verbose: boolean;
-  /** When set, starts an x402 seller HTTP server on this port. */
-  x402ServerPort?: number;
-  /** Facilitator URL for x402 payment verification. */
-  x402FacilitatorUrl: string;
-  /** Solana network identifier for x402 (e.g., "solana:mainnet" or "solana:devnet"). */
-  x402Network: `${string}:${string}`;
-  /** Telegram bot token from BotFather. */
-  telegramBotToken?: string;
-  /** Telegram chat ID the bot is restricted to. */
-  telegramChatId?: string;
 }
 
 const EnvSchema = z.object({
@@ -82,17 +72,6 @@ const EnvSchema = z.object({
   SOLANA_RPC_URL: z.string().optional(),
   NODE_ENV: z.string().optional(),
   VERBOSE: z.string().optional(),
-  X402_SERVER_PORT: z
-    .string()
-    .optional()
-    .transform((val) => (val ? parseInt(val, 10) : undefined))
-    .refine(
-      (val) => val === undefined || (Number.isInteger(val) && val > 0 && val <= 65535),
-      "X402_SERVER_PORT must be a valid port number (1-65535)",
-    ),
-  X402_FACILITATOR_URL: z.string().optional(),
-  TELEGRAM_BOT_TOKEN: z.string().optional(),
-  TELEGRAM_CHAT_ID: z.string().optional(),
 });
 
 export function loadConfig(): Config {
@@ -150,8 +129,6 @@ export function loadConfig(): Config {
   }
   const walletAddress = bs58.encode(keypairBytes.slice(32));
 
-  const solanaNetwork = env.SOLANA_NETWORK ?? "devnet";
-
   return {
     geminiApiKey: env.GEMINI_API_KEY,
     geminiModel: env.GEMINI_MODEL ?? "gemini-3.1-flash-lite-preview",
@@ -162,10 +139,5 @@ export function loadConfig(): Config {
     solanaRpcUrl: env.SOLANA_RPC_URL,
     mcpServerEnv,
     verbose: env.VERBOSE === "true" || env.VERBOSE === "1",
-    x402ServerPort: env.X402_SERVER_PORT,
-    x402FacilitatorUrl: env.X402_FACILITATOR_URL ?? "https://x402.org/facilitator",
-    x402Network: `solana:${solanaNetwork}`,
-    telegramBotToken: env.TELEGRAM_BOT_TOKEN,
-    telegramChatId: env.TELEGRAM_CHAT_ID,
   };
 }
