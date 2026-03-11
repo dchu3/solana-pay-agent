@@ -1,19 +1,19 @@
 # Solana Pay Agent
 
-A Gemini-powered CLI agent for making Solana USDC payments via the [x402](https://x402.org) protocol. Talk to it in plain English — it connects to a [solana-x402-mcp](https://github.com/dchu3/solana-x402-mcp) server and uses Gemini to decide which tools to call.
+A demo of **AI agent-to-agent payments** using the [x402](https://x402.org) protocol. Talk to a Gemini-powered CLI agent in plain English — it discovers tools on a remote [MCP](https://modelcontextprotocol.io) server and automatically pays for them with Solana USDC when the server returns HTTP 402.
 
-## Features
+## What This Demo Shows
 
-- **Natural language interface** — describe what you want in plain English
-- **Agentic tool calling** — Gemini automatically selects and invokes the right MCP tools
-- **x402 payment support** — wallet balance, send USDC, incoming payments, and x402 protocol payments
+1. **Agent → Remote MCP** — The CLI agent connects to a remote MCP server over HTTP, discovers available tools, and calls them based on your natural-language input.
+2. **Automatic x402 Payments** — When a tool call returns HTTP 402, the agent signs a Solana USDC payment and retries — no manual intervention needed.
+3. **Confirmation Before Paying** — All tool calls on a remote server require user confirmation, so you always approve before spending.
 
 ## Prerequisites
 
 - Node.js 20.18.0+ (required by `@solana/kit`)
-- A compiled [solana-x402-mcp](https://github.com/dchu3/solana-x402-mcp) server (`npm run build` in that repo), **or** a remote MCP server URL (`REMOTE_MCP_URL`)
+- A running remote MCP server (e.g. [solana-x402-mcp](https://github.com/dchu3/solana-x402-mcp))
 - A [Google AI Studio](https://aistudio.google.com/) API key
-- A Solana wallet private key (base58-encoded)
+- A Solana wallet private key (base58-encoded) funded with USDC
 
 ## Setup
 
@@ -30,12 +30,10 @@ npm run build
 Edit `.env` with your values:
 
 - `GEMINI_API_KEY` (required): Google Gemini API key
-- `MCP_SERVER_PATH` (required if `REMOTE_MCP_URL` is not set): Path to compiled MCP server entry point (e.g. `../solana-x402-mcp/dist/index.js`)
-- `REMOTE_MCP_URL` (required if `MCP_SERVER_PATH` is not set): URL of a remote MCP server. x402 payments are handled automatically.
+- `REMOTE_MCP_URL` (required): URL of the remote MCP server (StreamableHTTP). x402 payments are handled automatically.
 - `SOLANA_PRIVATE_KEY` (required): Base58-encoded Solana wallet private key
 - `GEMINI_MODEL` (optional): Gemini model (default: `gemini-3.1-flash-lite-preview`)
-- `SOLANA_NETWORK` (optional): `devnet` or `mainnet-beta`. If unset, the effective default is determined by the MCP server.
-- `SOLANA_RPC_URL` (optional): Custom Solana RPC endpoint
+- `SOLANA_RPC_URL` (optional): Custom Solana RPC endpoint (avoids public rate limits)
 - `VERBOSE` (optional): Set to `true` or `1` to enable debug logging
 
 ## Usage
@@ -73,16 +71,22 @@ The agent connects to the MCP server, discovers available tools, and uses Gemini
 ## Architecture
 
 ```
-                       ┌─────────────┐     ┌──────────────────┐
-  User (CLI) ─────────▶│ Gemini Agent │────▶│ solana-x402-mcp  │
-    readline  ◀─────────│  tool loop   │◀────│  (MCP stdio/HTTP) │
-                       └─────────────┘     └──────────────────┘
+                       ┌─────────────┐        ┌──────────────────┐
+  User (CLI) ─────────▶│ Gemini Agent │──HTTP──▶│  Remote MCP Server│
+    readline  ◀─────────│  tool loop   │◀───────│  (x402-gated)    │
+                       └─────────────┘        └──────────────────┘
+                                                      │
+                                               402? ──┤
+                                                      ▼
+                                               Sign USDC payment
+                                               (x402 SDK + Solana)
+                                               Retry with X-PAYMENT
 ```
 
 - **`src/index.ts`** — Interactive readline CLI entrypoint
 - **`src/agent.ts`** — Gemini agentic loop with function calling
-- **`src/mcp-client.ts`** — MCP client (local stdio or remote HTTP with x402 payments)
-- **`src/x402-fetch.ts`** — x402 payment-handling fetch wrapper
+- **`src/mcp-client.ts`** — Remote MCP client over StreamableHTTP with x402 payment support
+- **`src/x402-fetch.ts`** — Fetch wrapper that handles x402 payment challenges transparently
 - **`src/config.ts`** — Environment variable loading and validation
 - **`src/logger.ts`** — Debug logging utility (verbose mode)
 
