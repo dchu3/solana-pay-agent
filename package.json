@@ -1,7 +1,7 @@
 {
   "name": "solana-pay-agent",
   "version": "1.0.0",
-  "description": "A Gemini-powered CLI agent that interacts with the solana-x402-mcp server via natural language",
+  "description": "A demo of AI agent-to-agent payments via the x402 protocol",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
