@@ -8,22 +8,23 @@ import { setVerbose } from "./logger.js";
 
 function printHelp(): void {
   console.log(`
-Solana Pay Agent — an AI-powered CLI for managing Solana USDC transactions.
+Solana Pay Agent — an agent-to-agent x402 payment demo.
 
-Talk to the assistant in plain English. It can check balances, send payments,
-view transaction history, and make x402 protocol payments on your behalf.
+This CLI connects to a remote dex-agentic-bot MCP server to analyse tokens
+on the Solana blockchain. Token analysis is paid for automatically via the
+x402 protocol using your Solana wallet.
 
 Example prompts:
-  What is my USDC balance?
-  Send 5 USDC to <wallet-address>
-  Show my recent incoming payments
-  Pay for <url> using x402
+  Analyse the token <mint-address>
+  What tokens can you analyse?
+  Tell me about <token-name>
 
 Commands:
   /help   Show this help message
   /quit   Exit the application
 
-Destructive actions (like sending payments) will always ask for confirmation.
+Payments are made automatically via x402 — you'll be asked to confirm
+before any funds are spent.
 `);
 }
 
