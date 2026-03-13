@@ -59,6 +59,55 @@ const READ_ONLY_TOOLS = new Set([
 ]);
 
 /**
+ * Non-destructive tools that may require payment. These are safe to call
+ * speculatively (probe) so we can discover the cost before asking the user
+ * to confirm and pay.
+ */
+const PROBE_SAFE_TOOLS = new Set([
+  "analyze_token",
+]);
+
+// Well-known USDC mints (mainnet + devnet) for human-readable cost display.
+const USDC_DECIMALS = 6;
+const KNOWN_USDC_MINTS = new Set([
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+]);
+
+/** Format a tool call as a human-readable action description. */
+function formatToolAction(
+  toolName: string,
+  args: Record<string, unknown>,
+): string {
+  switch (toolName) {
+    case "analyze_token":
+      return `Analyze token ${args.address ?? "unknown address"}`;
+    case "send_usdc": {
+      const amount = args.amount ?? "?";
+      const recipient = args.recipient ?? args.to ?? "unknown";
+      return `Send ${amount} USDC to ${recipient}`;
+    }
+    default: {
+      const entries = Object.entries(args);
+      if (entries.length === 0) return `Run ${toolName}`;
+      const summary = entries
+        .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
+        .join(", ");
+      return `Run ${toolName} (${summary})`;
+    }
+  }
+}
+
+/** Format a payment amount for display (e.g. "0.01 USDC"). */
+function formatCost(amount: string, asset: string): string {
+  if (KNOWN_USDC_MINTS.has(asset)) {
+    const value = Number(amount) / 10 ** USDC_DECIMALS;
+    return `${value} USDC`;
+  }
+  return amount;
+}
+
+/**
  * Convert MCP tool JSON-Schema inputSchema to Gemini FunctionDeclaration format.
  * MCP uses standard JSON Schema types (lowercase), Gemini uses its own Type enum (uppercase).
  */
@@ -126,9 +175,9 @@ function mcpToolsToGeminiDeclarations(
 
 const MAX_TOOL_ROUNDS = 10;
 
-export type ConfirmFn = (toolName: string, args: Record<string, unknown>) => Promise<boolean>;
+export type ConfirmFn = (message: string) => Promise<boolean>;
 
-/** Default: reject destructive tool calls when no confirmation callback is provided. */
+/** Default: reject tool calls when no confirmation callback is provided. */
 const rejectByDefault: ConfirmFn = async () => false;
 
 /**
@@ -205,24 +254,120 @@ export async function runAgent(
 
       let output: Record<string, unknown>;
       try {
-        const needsConfirmation = !READ_ONLY_TOOLS.has(toolName);
+        if (READ_ONLY_TOOLS.has(toolName)) {
+          // ── Read-only: call directly, no confirmation, no payment ──
+          const resultText = await mcpClient.callTool(toolName, toolArgs, {
+            allowPayment: false,
+          });
+          output = { result: resultText };
+          debug(`Tool ${toolName} result: ${resultText}`);
+        } else if (PROBE_SAFE_TOOLS.has(toolName)) {
+          // ── Non-destructive paid tool: probe for cost, confirm with cost ──
+          try {
+            const resultText = await mcpClient.callTool(toolName, toolArgs, {
+              allowPayment: false,
+            });
+            // Succeeded without payment
+            output = { result: resultText };
+            debug(`Tool ${toolName} result: ${resultText}`);
+          } catch (probeErr) {
+            const probeMsg =
+              probeErr instanceof Error ? probeErr.message : String(probeErr);
+            if (
+              !probeMsg.toLowerCase().includes("402") &&
+              !probeMsg.toLowerCase().includes("payment required")
+            ) {
+              throw probeErr;
+            }
 
-        if (needsConfirmation) {
-          const approved = await confirmFn(toolName, toolArgs);
+            // Build confirmation message with cost
+            let message = formatToolAction(toolName, toolArgs);
+            const paymentInfo = mcpClient.getLastPaymentInfo();
+            if (paymentInfo) {
+              message += ` (cost: ${formatCost(paymentInfo.amount, paymentInfo.asset)})`;
+            } else {
+              message += " (requires payment)";
+            }
+
+            const approved = await confirmFn(message);
+            if (!approved) {
+              output = { error: "User declined the operation." };
+              responseParts.push({
+                functionResponse: {
+                  id: fc.id,
+                  name: toolName,
+                  response: output,
+                },
+              });
+              continue;
+            }
+
+            const resultText = await mcpClient.callTool(toolName, toolArgs, {
+              allowPayment: true,
+            });
+            output = { result: resultText };
+            debug(`Tool ${toolName} result: ${resultText}`);
+          }
+        } else {
+          // ── Destructive tool: confirm action first, then call ──
+          const message = formatToolAction(toolName, toolArgs);
+          const approved = await confirmFn(message);
           if (!approved) {
             output = { error: "User declined the operation." };
             responseParts.push({
-              functionResponse: { id: fc.id, name: toolName, response: output },
+              functionResponse: {
+                id: fc.id,
+                name: toolName,
+                response: output,
+              },
             });
             continue;
           }
-        }
 
-        const resultText = await mcpClient.callTool(toolName, toolArgs, {
-          allowPayment: needsConfirmation && mcpClient.requiresConfirmationForAllCalls,
-        });
-        output = { result: resultText };
-        debug(`Tool ${toolName} result: ${resultText}`);
+          try {
+            const resultText = await mcpClient.callTool(toolName, toolArgs, {
+              allowPayment: false,
+            });
+            output = { result: resultText };
+            debug(`Tool ${toolName} result: ${resultText}`);
+          } catch (callErr) {
+            const callMsg =
+              callErr instanceof Error ? callErr.message : String(callErr);
+            if (
+              !callMsg.toLowerCase().includes("402") &&
+              !callMsg.toLowerCase().includes("payment required")
+            ) {
+              throw callErr;
+            }
+
+            // Unexpected payment required — ask separately
+            let payMessage = "This action requires payment";
+            const paymentInfo = mcpClient.getLastPaymentInfo();
+            if (paymentInfo) {
+              payMessage += ` of ${formatCost(paymentInfo.amount, paymentInfo.asset)}`;
+            }
+            payMessage += ". Proceed?";
+
+            const payApproved = await confirmFn(payMessage);
+            if (!payApproved) {
+              output = { error: "User declined the payment." };
+              responseParts.push({
+                functionResponse: {
+                  id: fc.id,
+                  name: toolName,
+                  response: output,
+                },
+              });
+              continue;
+            }
+
+            const resultText = await mcpClient.callTool(toolName, toolArgs, {
+              allowPayment: true,
+            });
+            output = { result: resultText };
+            debug(`Tool ${toolName} result: ${resultText}`);
+          }
+        }
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         debug(`Tool ${toolName} error: ${errorMsg}`);
