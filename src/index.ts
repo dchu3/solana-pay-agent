@@ -10,9 +10,9 @@ function printHelp(): void {
   console.log(`
 Solana Pay Agent — an agent-to-agent x402 payment demo.
 
-This CLI connects to a remote dex-agentic-bot MCP server to analyse tokens
-on the Solana blockchain. Token analysis is paid for automatically via the
-x402 protocol using your Solana wallet.
+This CLI connects to a remote MCP server to analyse tokens on the Solana
+blockchain. Token analysis is paid for automatically via the x402 protocol
+using your Solana wallet.
 
 Example prompts:
   Analyse the token <mint-address>
