@@ -10,7 +10,7 @@ export function isVerbose(): boolean {
 
 /** Redact values of sensitive URL query parameters to avoid leaking API keys. */
 const SENSITIVE_PARAM_RE =
-  /([?&](?:api[-_]?key|key|token|secret|password|auth)=)([^&\s]+)/gi;
+  /([?&](?:api[-_]?key|key|token|secret|password|auth)=)([^&\s"'{}[\]]*)/gi;
 
 function maskSecrets(message: string): string {
   return message.replace(SENSITIVE_PARAM_RE, "$1***");
