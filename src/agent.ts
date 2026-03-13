@@ -90,7 +90,9 @@ function formatToolAction(
     default: {
       const entries = Object.entries(args);
       if (entries.length === 0) return `Run ${toolName}`;
-      const summary = entries.map(([k, v]) => `${k}: ${v}`).join(", ");
+      const summary = entries
+        .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
+        .join(", ");
       return `Run ${toolName} (${summary})`;
     }
   }

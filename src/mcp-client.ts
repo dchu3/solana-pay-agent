@@ -117,6 +117,8 @@ export async function createRemoteMcpClient(
         if (!accepts?.[0]) return null;
         const first = accepts[0];
         if (typeof first.amount !== "string" && typeof first.amount !== "number") return null;
+        const parsed = Number(first.amount);
+        if (!Number.isFinite(parsed) || parsed < 0) return null;
         return {
           amount: String(first.amount),
           asset: typeof first.asset === "string" ? first.asset : "",
