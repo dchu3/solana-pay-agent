@@ -27,6 +27,7 @@ const SYSTEM_INSTRUCTION = (walletAddress: string, toolNames: string[]) => {
     "send_usdc",
     "get_incoming_usdc_payments",
     "get_wallet_info",
+    "get_wallet_balance",
     "analyze_token",
   ]);
   const unknownTools = toolNames.filter((t) => !knownTools.has(t));
@@ -51,6 +52,7 @@ IMPORTANT: Only use tools that are explicitly available to you. Do NOT attempt t
  */
 const READ_ONLY_TOOLS = new Set([
   "get_wallet_info",
+  "get_wallet_balance",
   "get_sol_balance",
   "get_usdc_balance",
   "get_incoming_usdc_payments",
@@ -203,9 +205,7 @@ export async function runAgent(
 
       let output: Record<string, unknown>;
       try {
-        const needsConfirmation =
-          mcpClient.requiresConfirmationForAllCalls ||
-          !READ_ONLY_TOOLS.has(toolName);
+        const needsConfirmation = !READ_ONLY_TOOLS.has(toolName);
 
         if (needsConfirmation) {
           const approved = await confirmFn(toolName, toolArgs);
