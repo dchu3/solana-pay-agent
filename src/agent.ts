@@ -219,7 +219,7 @@ export async function runAgent(
         }
 
         const resultText = await mcpClient.callTool(toolName, toolArgs, {
-          allowPayment: mcpClient.requiresConfirmationForAllCalls,
+          allowPayment: needsConfirmation && mcpClient.requiresConfirmationForAllCalls,
         });
         output = { result: resultText };
         debug(`Tool ${toolName} result: ${resultText}`);
