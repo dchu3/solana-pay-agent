@@ -59,14 +59,13 @@ Debug output is written to stderr so it won't interfere with normal conversation
 Example prompts:
 
 ```
-> What is my USDC balance?
-> Send 5 USDC to 7xKX...abc
-> Show me my recent incoming USDC payments
-> Pay for <url> using x402
+> Analyse the token <mint-address>
+> What tokens can you analyse?
+> Tell me about <token-name>
 > /quit
 ```
 
-The agent connects to the MCP server, discovers available tools, and uses Gemini to decide which tools to call based on your input. Destructive actions (like sending payments) always ask for confirmation. Type `/quit` or press Ctrl+C to exit.
+The agent connects to the MCP server, discovers available tools, and uses Gemini to decide which tools to call based on your input. Payments are made automatically via x402 — you'll be asked to confirm before any funds are spent. Type `/quit` or press Ctrl+C to exit.
 
 ## Architecture
 
