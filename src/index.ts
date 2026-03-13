@@ -102,13 +102,8 @@ async function main(): Promise<void> {
       }
 
       try {
-        const confirmFn = async (
-          toolName: string,
-          args: Record<string, unknown>,
-        ): Promise<boolean> => {
-          const answer = await rl.question(
-            `\n⚠️  Confirm ${toolName} with ${JSON.stringify(args)}? (y/N) `,
-          );
+        const confirmFn = async (message: string): Promise<boolean> => {
+          const answer = await rl.question(`\n⚠️  ${message} (y/N) `);
           return answer.trim().toLowerCase() === "y";
         };
 

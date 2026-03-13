@@ -12,6 +12,11 @@ export interface McpCallOptions {
   allowPayment?: boolean;
 }
 
+export interface PaymentInfo {
+  amount: string;
+  asset: string;
+}
+
 export interface McpClient {
   tools: Tool[];
   requiresConfirmationForAllCalls: boolean;
@@ -20,6 +25,7 @@ export interface McpClient {
     args: Record<string, unknown>,
     options?: McpCallOptions,
   ): Promise<string>;
+  getLastPaymentInfo(): PaymentInfo | null;
   close(): Promise<void>;
 }
 
@@ -41,9 +47,30 @@ export async function createRemoteMcpClient(
 ): Promise<McpClient> {
   const paidFetch = await createX402Fetch(solanaPrivateKey, rpcUrl);
 
+  // Intercept 402 responses on the plain transport so callers can inspect
+  // the payment requirements (e.g. cost) before deciding to pay.
+  let lastPaymentBody: unknown = null;
+
+  const costProbeFetch: typeof globalThis.fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    lastPaymentBody = null;
+    const response = await globalThis.fetch(input, init);
+    if (response.status === 402) {
+      try {
+        const cloned = response.clone();
+        lastPaymentBody = await cloned.json();
+      } catch {
+        // Cost info is best-effort; ignore parse failures.
+      }
+    }
+    return response;
+  };
+
   // Use a separate transport for paid tool calls so that connect/listTools
   // go through plain fetch and never trigger x402 payments.
-  const transport = new StreamableHTTPClientTransport(new URL(url));
+  const transport = new StreamableHTTPClientTransport(new URL(url), { fetch: costProbeFetch });
 
   const client = new Client({ name: "solana-pay-agent", version: packageJson.version });
 
@@ -82,6 +109,19 @@ export async function createRemoteMcpClient(
     return {
       tools,
       requiresConfirmationForAllCalls: true,
+
+      getLastPaymentInfo(): PaymentInfo | null {
+        if (!lastPaymentBody || typeof lastPaymentBody !== "object") return null;
+        const body = lastPaymentBody as Record<string, unknown>;
+        const accepts = body.accepts as Array<Record<string, unknown>> | undefined;
+        if (!accepts?.[0]) return null;
+        const first = accepts[0];
+        if (typeof first.amount !== "string" && typeof first.amount !== "number") return null;
+        return {
+          amount: String(first.amount),
+          asset: typeof first.asset === "string" ? first.asset : "",
+        };
+      },
 
       async callTool(
         name: string,
